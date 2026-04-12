@@ -27,6 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
+       suppressHydrationWarning
       lang="en"
       className={`${spaceGrotesk.variable} ${dmSans.variable} antialiased`}
     >
