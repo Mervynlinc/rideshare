@@ -1,0 +1,1 @@
+This is the Landing page for RideShare, a mobile app that enables university students to share rides and save campus costs. The landing page is designed to attract users and provide information about the app's features and benefits.
