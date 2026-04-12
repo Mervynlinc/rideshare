@@ -1,0 +1,1 @@
+This is the mobile app for RideShare, a campus ride-sharing platform designed to connect students for safe and convenient transportation. Built with React Native and powered by Supabase, the app allows users to post rides, join rides, and communicate securely with their ride buddies.
