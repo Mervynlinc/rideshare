@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #080808;
+  --bg2: #0F0F0F;
+  --bg3: #141414;
+  --card: #181818;
+  --card2: #1E1E1E;
+  --border: #272727;
+  --border2: #333;
+  --accent: #00E676;
+  --accent2: #00C853;
+  --aglow: rgba(0, 230, 118, 0.1);
+  --amber: #FFB300;
+  --red: #FF1744;
+  --cyan: #26C6DA;
+  --purple: #AB47BC;
+  --orange: #FF7043;
+  --text: #FFF;
+  --text2: #A0A0A0;
+  --text3: #5A5A5A;
+  --text4: #3A3A3A;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-bg3: var(--bg3);
+  --color-card: var(--card);
+  --color-card2: var(--card2);
+  --color-border: var(--border);
+  --color-border2: var(--border2);
+  --color-accent: var(--accent);
+  --color-accent2: var(--accent2);
+  --color-aglow: var(--aglow);
+  --color-amber: var(--amber);
+  --color-red: var(--red);
+  --color-cyan: var(--cyan);
+  --color-purple: var(--purple);
+  --color-orange: var(--orange);
+  --color-text: var(--text);
+  --color-text2: var(--text2);
+  --color-text3: var(--text3);
+  --color-text4: var(--text4);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg);
+  color: var(--text);
+}
