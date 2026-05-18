@@ -4,14 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, TrustBadge, BackButton, Button } from '../../../components/ui';
-import { mockJoinRequests } from '../../../data/mockData';
 import { useTheme } from '../../../hooks/useTheme';
+import { JoinRequest } from '../../../types';
 
 export default function RequestsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [requests, setRequests] = useState(mockJoinRequests);
+  const [requests, setRequests] = useState<JoinRequest[]>([]);
 
   const handleAccept = (index: number) => {
     const newRequests = [...requests];

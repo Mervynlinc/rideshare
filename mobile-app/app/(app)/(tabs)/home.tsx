@@ -1,16 +1,28 @@
-import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { RideCard } from '../../../components';
-import { mockUser, getGreeting, mockRides } from '../../../data/mockData';
+import { getGreeting } from '../../../data/mockData';
 import { Chip } from '../../../components/ui';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../hooks/useTheme';
+import { useAuth, useNotifications } from '../../../context';
+import { useRides } from '../../../hooks/useRides';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const { unreadCount } = useNotifications();
+  const { rides, loading, fetchRides, removingIds } = useRides();
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRides();
+    }, [fetchRides]),
+  );
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -25,7 +37,7 @@ export default function HomeScreen() {
   const filters = ['Same Gender', '< 5 min', 'Scheduled'];
 
   const filteredRides = useMemo(() => {
-    return mockRides.filter((ride) => {
+    return rides.filter((ride) => {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesDestination =
@@ -49,7 +61,7 @@ export default function HomeScreen() {
 
       return true;
     });
-  }, [searchQuery, selectedFilters]);
+  }, [searchQuery, selectedFilters, rides]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
@@ -58,7 +70,7 @@ export default function HomeScreen() {
           <View>
             <Text className="text-xs text-text-muted">{getGreeting()}</Text>
             <Text className="text-xl font-bold font-display text-text">
-              {mockUser.name.split(' ')[0]}
+              {user?.name?.split(' ')[0] || 'User'}
             </Text>
           </View>
           <TouchableOpacity
@@ -66,14 +78,16 @@ export default function HomeScreen() {
             onPress={() => router.push('/(app)/notifications')}
           >
             <Ionicons name="notifications-outline" size={18} className="text-icon-muted" />
-            <View className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red border-2 border-bg-phone" />
+            {unreadCount > 0 && (
+              <View className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red border-2 border-bg-phone" />
+            )}
           </TouchableOpacity>
         </View>
 
         <View className="flex-row items-center gap-1.5 pb-4">
           <Ionicons name="location" size={12} className="text-accent" />
           <Text className="text-xs text-text-muted">
-            {mockUser.campusShort} — Mbarara
+            {user?.campusShort || 'Campus'} — Mbarara
           </Text>
           <Text className="text-xs text-text-dim">·</Text>
           <Text className="text-xs text-text-muted">Showing rides near you</Text>
@@ -110,12 +124,18 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        {filteredRides.length > 0 ? (
+        {loading ? (
+          <View className="py-20 items-center">
+            <ActivityIndicator size="large" color={colors.accent.DEFAULT} />
+            <Text className="text-sm text-text-muted mt-3">Loading rides...</Text>
+          </View>
+        ) : filteredRides.length > 0 ? (
           <View className="gap-3">
             {filteredRides.map((ride) => (
               <RideCard
                 key={ride.id}
                 ride={ride}
+                removing={removingIds.includes(ride.id)}
                 onPress={() => router.push(`/(app)/ride/${ride.id}`)}
               />
             ))}
@@ -124,8 +144,18 @@ export default function HomeScreen() {
           <View className="py-12 items-center">
             <Ionicons name="search" size={48} className="text-icon-muted mb-3" />
             <Text className="text-sm text-text-muted text-center">
-              No rides match your search
+              {searchQuery ? 'No rides match your search' : 'No rides yet'}
             </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                className="mt-3"
+                onPress={() => router.push('/(app)/(tabs)/post')}
+              >
+                <Text className="text-sm text-accent font-semibold">
+                  Post the first ride
+                </Text>
+              </TouchableOpacity>
+            )}
             {searchQuery && (
               <TouchableOpacity
                 className="mt-3"
@@ -139,9 +169,11 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <Text className="text-xs text-center py-6 text-text-dim">
-          Showing {filteredRides.length} of {mockRides.length} rides
-        </Text>
+        {!loading && (
+          <Text className="text-xs text-center py-6 text-text-dim">
+            Showing {filteredRides.length} of {rides.length} rides
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

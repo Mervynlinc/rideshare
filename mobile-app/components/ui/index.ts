@@ -9,3 +9,4 @@ export { Toggle } from './Toggle';
 export { BackButton } from './BackButton';
 export { PinInput, StarRating } from './PinInput';
 export { ThemeToggle } from './ThemeToggle';
+export { Modal } from './Modal';

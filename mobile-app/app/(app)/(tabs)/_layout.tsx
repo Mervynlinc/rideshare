@@ -7,7 +7,7 @@ export default function TabsLayout() {
 const { colors } = useTheme();
 
 return (
-<SafeAreaView className="flex-1">
+
 <Tabs
 screenOptions={{
         headerShown: false,
@@ -15,8 +15,6 @@ screenOptions={{
           backgroundColor: colors.bg.phone,
           borderTopColor: colors.border.DEFAULT,
           height: 50,
-          paddingTop: 5,
-          paddingBottom: 5,
         },
         tabBarActiveTintColor: colors.accent.DEFAULT,
         tabBarInactiveTintColor: colors.text.muted,
@@ -59,6 +57,6 @@ screenOptions={{
           }}
         />
       </Tabs>
-    </SafeAreaView>
+    
   );
 }

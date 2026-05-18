@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BackButton, Chip, Toggle, Button } from '../../components/ui';
-import { mockUser, mockRides } from '../../data/mockData';
+import { mockUser } from '../../data/mockData';
 
 const savedFilters = [
   { id: '1', name: 'Female Only' },
@@ -155,7 +155,7 @@ export default function FiltersScreen() {
           </View>
 
           <Button
-            title={`Apply Filters (${mockRides.length} results)`}
+            title="Apply Filters"
             onPress={() => router.back()}
           />
 

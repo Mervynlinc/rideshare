@@ -1,19 +1,38 @@
 import { useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Toggle } from '../../../components/ui';
+import { Toggle, Modal } from '../../../components/ui';
 import { useTheme } from '../../../hooks/useTheme';
+import { useRides } from '../../../hooks/useRides';
+import { PostRideData } from '../../../types';
+
+const TIMER_OPTIONS = [
+  { label: '15 min', value: 15 },
+  { label: '30 min', value: 30 },
+  { label: '1 hr', value: 60 },
+  { label: '2 hr', value: 120 },
+  { label: '4 hr', value: 240 },
+  { label: 'No expiry', value: 0 },
+];
 
 export default function PostRideScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { postRide } = useRides();
+  const [posting, setPosting] = useState(false);
+  const [modal, setModal] = useState<{ visible: boolean; type: 'success' | 'error'; title: string; description: string }>({
+    visible: false,
+    type: 'success',
+    title: '',
+    description: '',
+  });
   const [formData, setFormData] = useState({
-    from: 'Main Campus Gate',
-    to: 'Mbarara Town Centre',
-    mode: 0,
+    from: '',
+    to: '',
     departureType: 0,
+    expiresIn: 30,
     scheduledDay: new Date(),
     scheduledTime: '10:00',
     seats: 2,
@@ -40,6 +59,55 @@ export default function PostRideScreen() {
 
   const [selectedDay, setSelectedDay] = useState(0);
 
+  const handlePost = async () => {
+    if (!formData.from.trim() || !formData.to.trim()) {
+      setModal({
+        visible: true,
+        type: 'error',
+        title: 'Missing Fields',
+        description: 'Please enter both pickup and drop-off locations.',
+      });
+      return;
+    }
+
+    setPosting(true);
+
+    const scheduledDate = formData.departureType === 1
+      ? new Date(Date.now() + selectedDay * 86400000)
+      : undefined;
+
+    const rideData: PostRideData = {
+      from: formData.from.trim(),
+      to: formData.to.trim(),
+      mode: 'boda',
+      departureType: formData.departureType === 0 ? 'immediate' : 'scheduled',
+      scheduledDate,
+      scheduledTime: formData.departureType === 1 ? formData.scheduledTime : undefined,
+      seats: formData.seats,
+      genderPreference: formData.genderPreference === 0 ? 'any' : 'same',
+      expiresInMinutes: formData.departureType === 0 && formData.expiresIn > 0 ? formData.expiresIn : undefined,
+    };
+
+    const ride = await postRide(rideData);
+    setPosting(false);
+
+    if (ride) {
+      setModal({
+        visible: true,
+        type: 'success',
+        title: 'Ride Posted!',
+        description: 'Your ride is now visible to your university.',
+      });
+    } else {
+      setModal({
+        visible: true,
+        type: 'error',
+        title: 'Something went wrong',
+        description: 'Failed to post ride. Please try again.',
+      });
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
       <ScrollView className="flex-1 px-5 pt-6 pb-28 bg-bg-phone">
@@ -61,31 +129,17 @@ export default function PostRideScreen() {
             </View>
             <TextInput
               className="bg-transparent px-12 py-3.5 text-sm border-b border-border text-text"
-              placeholder="From"
+              placeholder="From (e.g. Main Campus Gate)"
               placeholderTextColor="rgb(156 163 175)"
               value={formData.from}
               onChangeText={(text) => setFormData({ ...formData, from: text })}
             />
             <TextInput
               className="bg-transparent px-12 py-3.5 text-sm text-text"
-              placeholder="To"
+              placeholder="To (e.g. Mbarara Town Centre)"
               placeholderTextColor="rgb(156 163 175)"
               value={formData.to}
               onChangeText={(text) => setFormData({ ...formData, to: text })}
-            />
-          </View>
-
-          <View>
-            <Text className="text-xs font-semibold uppercase tracking-wider mb-2 text-text-muted">
-              Mode
-            </Text>
-            <Toggle
-              options={[
-                { label: 'Boda-boda', icon: <Ionicons name="bicycle" size={14} /> },
-                { label: 'Cab (Soon)', icon: <Ionicons name="car" size={14} /> },
-              ]}
-              selected={formData.mode}
-              onSelect={(i) => setFormData({ ...formData, mode: i })}
             />
           </View>
 
@@ -103,7 +157,32 @@ export default function PostRideScreen() {
             />
           </View>
 
-          {formData.departureType === 1 && (
+          {formData.departureType === 0 ? (
+            <View>
+              <Text className="text-xs font-semibold uppercase tracking-wider mb-2.5 text-text-muted">
+                Ride Expires In
+              </Text>
+              <View className="flex-row gap-2 flex-wrap">
+                {TIMER_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    className={`px-4 py-2.5 rounded-xl border ${formData.expiresIn === opt.value ? 'bg-accent-glow border-accent' : 'bg-bg-card border-border'}`}
+                    onPress={() => setFormData({ ...formData, expiresIn: opt.value })}
+                  >
+                    <Text className={`text-sm font-semibold ${formData.expiresIn === opt.value ? 'text-accent' : 'text-text-muted'}`}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View className="flex-row items-center gap-1.5 mt-2.5">
+                <Ionicons name="information-circle" size={12} className="text-text-dim" />
+                <Text className="text-xs text-text-dim">
+                  {formData.expiresIn === 0 ? 'Ride will not auto-cancel' : 'Ride auto-cancels after the timer runs out'}
+                </Text>
+              </View>
+            </View>
+          ) : (
             <>
               <View>
                 <Text className="text-xs font-semibold uppercase tracking-wider mb-2.5 text-text-muted">
@@ -163,7 +242,7 @@ export default function PostRideScreen() {
               </Text>
             </View>
             <View className="flex-row gap-3">
-              {[1, 2, 3, 4].map((seat) => (
+              {[1, 2].map((seat) => (
                 <TouchableOpacity
                   key={seat}
                   className={`flex-1 h-11 rounded-xl items-center justify-center border ${formData.seats === seat ? 'bg-accent-glow border-accent' : 'bg-transparent border-border'}`}
@@ -190,12 +269,33 @@ export default function PostRideScreen() {
         </View>
 
         <TouchableOpacity
-          className="rounded-2xl py-4 items-center flex-row justify-center gap-2 mt-4 bg-accent"
-          onPress={() => router.push('/(app)/(tabs)/rides')}
+          className={`rounded-2xl py-4 items-center flex-row justify-center gap-2 mt-4 ${posting ? 'bg-accent-dim' : 'bg-accent'}`}
+          onPress={handlePost}
+          disabled={posting}
         >
-          <Ionicons name="send" size={16} color={colors.icon.DEFAULT} />
-          <Text className="text-black font-semibold text-base">Post Ride</Text>
+          {posting ? (
+            <ActivityIndicator size="small" color={colors.icon.DEFAULT} />
+          ) : (
+            <Ionicons name="send" size={16} color={colors.icon.DEFAULT} />
+          )}
+          <Text className="text-black font-semibold text-base">
+            {posting ? 'Posting...' : 'Post Ride'}
+          </Text>
         </TouchableOpacity>
+
+        <Modal
+          visible={modal.visible}
+          type={modal.type}
+          title={modal.title}
+          description={modal.description}
+          buttonText={modal.type === 'success' ? 'View My Rides' : 'Try Again'}
+          onClose={() => {
+            setModal((prev) => ({ ...prev, visible: false }));
+            if (modal.type === 'success') {
+              router.push('/(app)/(tabs)/rides');
+            }
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,38 +1,29 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { RideCard } from '../../../components';
 import { Toggle } from '../../../components/ui';
-import { mockRides } from '../../../data/mockData';
-
-const postedRides = mockRides.slice(0, 2).map((ride) => ({
-  ...ride,
-  status: (ride.seatsTaken === ride.seatsTotal ? 'full' : 'active') as 'full' | 'active',
-}));
-
-const requestedRides = [
-  {
-    id: 'r1',
-    from: 'Main Campus Gate',
-    to: 'Mbarara Town Centre',
-    poster: 'Fatima Hassan',
-    status: 'accepted',
-    postedAt: new Date(Date.now() - 15 * 60 * 1000),
-  },
-  {
-    id: 'r2',
-    from: 'Engineering Block',
-    to: 'Kakyeka Stage',
-    poster: 'Brian Kiprop',
-    status: 'cancelled',
-    postedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-];
+import { useRides } from '../../../hooks/useRides';
 
 export default function MyRidesScreen() {
   const router = useRouter();
+  const { rides, loading, removingIds } = useRides();
   const [activeTab, setActiveTab] = useState(0);
+
+  const postedRides = rides;
+  const requestedRides: any[] = [];
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-phone">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
@@ -52,43 +43,29 @@ export default function MyRidesScreen() {
 
         <View className="mt-5 gap-3">
           {activeTab === 0 ? (
-            <>
-              {postedRides.map((ride) => (
+            postedRides.length > 0 ? (
+              postedRides.map((ride) => (
                 <RideCard
                   key={ride.id}
                   ride={ride}
+                  removing={removingIds.includes(ride.id)}
                   onPress={() => router.push(`/(app)/requests/${ride.id}`)}
                 />
-              ))}
-            </>
-          ) : (
-            <>
-              {requestedRides.map((ride) => (
-                <TouchableOpacity
-                  key={ride.id}
-                  className="rounded-2xl p-4 bg-bg-card border border-border"
-                  onPress={() => router.push(`/(app)/chat/${ride.id}`)}
-                >
-                  <View className="flex-row justify-between items-start mb-2">
-                    <View className="flex-1">
-                      <Text className="text-sm font-semibold mb-1 text-text">{ride.from}</Text>
-                      <Text className="text-sm font-semibold text-accent">{ride.to}</Text>
-                    </View>
-                    <View className={`px-2.5 py-1 rounded-lg ${ride.status === 'accepted' ? 'bg-accent-glow' : 'bg-red-dim'}`}>
-                      <Text className={`text-xs font-semibold ${ride.status === 'accepted' ? 'text-accent' : 'text-red'}`}>
-                        {ride.status.charAt(0).toUpperCase() + ride.status.slice(1)}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="flex-row justify-between items-center mt-2.5 pt-2.5 border-t border-border">
-                    <Text className="text-xs text-text-muted">Poster: {ride.poster}</Text>
-                    <Text className="text-xs text-text-muted">
-                      {Math.floor((Date.now() - ride.postedAt.getTime()) / 60000)} min ago
-                    </Text>
-                  </View>
+              ))
+            ) : (
+              <View className="py-12 items-center">
+                <Ionicons name="bicycle" size={48} className="text-icon-muted mb-3" />
+                <Text className="text-sm text-text-muted text-center">No rides posted yet</Text>
+                <TouchableOpacity className="mt-3" onPress={() => router.push('/(app)/(tabs)/post')}>
+                  <Text className="text-sm text-accent font-semibold">Post your first ride</Text>
                 </TouchableOpacity>
-              ))}
-            </>
+              </View>
+            )
+          ) : (
+            <View className="py-12 items-center">
+              <Ionicons name="hand-left" size={48} className="text-icon-muted mb-3" />
+              <Text className="text-sm text-text-muted text-center">No requested rides yet</Text>
+            </View>
           )}
         </View>
       </ScrollView>

@@ -5,12 +5,14 @@ export interface User {
   gender: 'Male' | 'Female' | 'Other';
   campus: string;
   campusShort: string;
+  universityId: string;
   hostel: string;
   verified: boolean;
   trust: number;
   ridesCompleted: number;
   ridesPosted: number;
   ridesJoined: number;
+  avatarUrl?: string;
   createdAt: Date;
 }
 
@@ -35,6 +37,7 @@ export type RequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
 export interface Ride {
   id: string;
+  posterId: string;
   campus: string;
   poster: Person;
   from: string;
@@ -43,6 +46,7 @@ export interface Ride {
   scheduledTime?: string;
   scheduledDate?: string;
   closesIn?: string;
+  expiresAt?: string;
   seatsTotal: number;
   seatsTaken: number;
   genderPreference: GenderPreference;
@@ -78,7 +82,7 @@ export interface Chat {
   createdAt: Date;
 }
 
-export type NotificationType = 'success' | 'warning' | 'error';
+export type NotificationType = 'success' | 'warning' | 'error' | 'info';
 
 export interface Notification {
   id: string;
@@ -121,6 +125,7 @@ export interface PostRideData {
   scheduledTime?: string;
   seats: number;
   genderPreference: GenderPreference;
+  expiresInMinutes?: number;
 }
 
 export interface AuthState {
@@ -137,4 +142,36 @@ export interface AppState {
   notifications: Notification[];
   rideHistory: RideHistory[];
   savedFilters: SavedFilter[];
+}
+
+export interface JoinRequest {
+  id: string;
+  rideId: string;
+  requesterId: string;
+  requester?: Person;
+  status: RequestStatus;
+  requestedAt: Date;
+  respondedAt?: Date;
+  responseMessage?: string;
+}
+
+export interface ChatParticipant {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  trustScore: number;
+  verified: boolean;
+  gender: string;
+}
+
+export interface ChatWithDetails {
+  id: string;
+  rideId: string;
+  rideFrom: string;
+  rideTo: string;
+  participant: ChatParticipant;
+  lastMessage?: string;
+  lastMessageAt?: Date;
+  unreadCount: number;
+  createdAt: Date;
 }

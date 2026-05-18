@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { BackButton, Button } from '../../components/ui';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../context';
+import { supabase } from '../../lib/supabase';
 import { validateStudentEmail, UNIVERSITIES, University } from '../../utils/university';
 import { mockUser } from '../../data/mockData';
 
@@ -26,6 +28,62 @@ export default function EditProfileScreen() {
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showCampusPicker, setShowCampusPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const initials = user?.name?.split(' ').map((n) => n[0]).join('') || 'U';
+
+  const pickAvatar = async () => {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      const file = result.assets[0];
+      const MAX_SIZE = 5 * 1024 * 1024;
+      if (file.fileSize && file.fileSize > MAX_SIZE) {
+        Alert.alert('Image Too Large', 'Please select an image under 5MB.');
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const ext = file.uri.split('.').pop() || 'jpg';
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: `image/${ext}`,
+        name: `avatar.${ext}`,
+      } as any);
+
+      const filePath = `${user?.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, formData, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      await updateUser({ avatarUrl: urlData.publicUrl });
+    } catch (error) {
+      console.log('Error uploading avatar:', error);
+      Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const genderOptions = ['Male', 'Female'];
 
@@ -83,6 +141,53 @@ export default function EditProfileScreen() {
           </Text>
           <View style={{ width: 36 }} />
         </View>
+
+        <TouchableOpacity
+          className="items-center mb-6"
+          onPress={pickAvatar}
+          disabled={uploadingAvatar}
+        >
+          <View className="relative">
+            <View
+              className="items-center justify-center overflow-hidden"
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 50,
+                backgroundColor: `${colors.accent.DEFAULT}20`,
+              }}
+            >
+              {uploadingAvatar ? (
+                <ActivityIndicator size="large" color={colors.accent.DEFAULT} />
+              ) : user?.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={{ width: 100, height: 100 }}
+                  contentFit="cover"
+                />
+              ) : (
+                <Text
+                  className="font-display font-semibold"
+                  style={{ fontSize: 32, color: colors.accent.DEFAULT }}
+                >
+                  {initials}
+                </Text>
+              )}
+            </View>
+            <View
+              className="absolute -bottom-1 -right-1 rounded-full p-2 border-2"
+              style={{
+                backgroundColor: colors.accent.DEFAULT,
+                borderColor: colors.bg.card,
+              }}
+            >
+              <Ionicons name="camera" size={16} color="white" />
+            </View>
+          </View>
+          <Text className="text-sm font-medium mt-2" style={{ color: colors.accent.DEFAULT }}>
+            {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
+          </Text>
+        </TouchableOpacity>
 
         <View className="gap-3.5 mb-4">
           <View>

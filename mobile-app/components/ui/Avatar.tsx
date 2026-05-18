@@ -1,4 +1,5 @@
 import { View, Text, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -6,6 +7,7 @@ interface AvatarProps {
   initials: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   color?: string;
+  imageUrl?: string;
   verified?: boolean;
   caution?: boolean;
   style?: ViewStyle;
@@ -18,7 +20,7 @@ const sizeMap = {
   xl: { width: 80, height: 80, fontSize: 28, badgeSize: 18, badgeIcon: 9 },
 };
 
-export function Avatar({ initials, size = 'md', color, verified, caution, style }: AvatarProps) {
+export function Avatar({ initials, size = 'md', color, imageUrl, verified, caution, style }: AvatarProps) {
   const { colors } = useTheme();
   const avatarColor = color || colors.accent.DEFAULT;
   const s = sizeMap[size];
@@ -26,7 +28,7 @@ export function Avatar({ initials, size = 'md', color, verified, caution, style 
   return (
     <View style={[{ width: s.width, height: s.height }, style]}>
       <View
-        className="items-center justify-center"
+        className="items-center justify-center overflow-hidden"
         style={{
           width: s.width,
           height: s.height,
@@ -34,12 +36,21 @@ export function Avatar({ initials, size = 'md', color, verified, caution, style 
           backgroundColor: `${avatarColor}20`,
         }}
       >
-        <Text
-          className="font-display font-semibold"
-          style={{ fontSize: s.fontSize, color: avatarColor }}
-        >
-          {initials}
-        </Text>
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={{ width: s.width, height: s.height }}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <Text
+            className="font-display font-semibold"
+            style={{ fontSize: s.fontSize, color: avatarColor }}
+          >
+            {initials}
+          </Text>
+        )}
       </View>
       {verified && (
         <View

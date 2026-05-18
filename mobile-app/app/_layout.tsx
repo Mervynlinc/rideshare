@@ -4,13 +4,16 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import '../global.css';
 import { ThemeProvider, useTheme } from '../hooks/useTheme';
-import { AuthProvider, useAuth } from '../context';
+import { AuthProvider, useAuth, NotificationProvider, RideProvider } from '../context';
+import { useNotifications } from '../hooks/useNotifications';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 function RootNavigator() {
   const { isDark, colors, isLoading: themeLoading } = useTheme();
   const { isAuthenticated, isFirstTime, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  useNotifications();
 
   const isLoading = themeLoading || authLoading;
 
@@ -68,7 +71,13 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <RootNavigator />
+        <ErrorBoundary>
+          <NotificationProvider>
+            <RideProvider>
+              <RootNavigator />
+            </RideProvider>
+          </NotificationProvider>
+        </ErrorBoundary>
       </AuthProvider>
     </ThemeProvider>
   );

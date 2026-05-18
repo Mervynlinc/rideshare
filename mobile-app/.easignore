@@ -1,0 +1,35 @@
+# Git History (Crucial for size reduction)
+.git/
+
+# Dependencies
+node_modules/
+
+# Local Native folders
+/ios/
+/android/
+
+# Build outputs and Expo cache
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Database files (Since you mentioned using SQLite and DB.sql)
+*.db
+*.sqlite
+DB.sql
+
+# Environment and Secrets (EAS loads these from your "development" environment)
+.env
+.env.local
+.env.*
+
+# Large assets that aren't for the app
+# (e.g., if you have raw video edits for your course project)
+**/*.mp4
+**/*.mov
+**/*.psd
+
+# Editor/System
+.vscode/
+.DS_Store

@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { OnboardingCarousel } from '../../components';
+import { OnboardingModal } from '../../components/OnboardingModal';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../context';
 
@@ -24,7 +24,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.bg.phone }}>
       <View className="flex-1" style={{ backgroundColor: colors.bg.phone }}>
-        <OnboardingCarousel
+        <OnboardingModal
           onComplete={handleComplete}
           onLogin={handleLogin}
         />

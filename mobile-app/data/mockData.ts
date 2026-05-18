@@ -7,117 +7,20 @@ export const mockUser: User = {
   gender: 'Male',
   campus: 'Mbarara University of Science and Technology',
   campusShort: 'MUST',
+  universityId: '',
   hostel: 'Nyamitanga',
   verified: true,
   trust: 4.7,
   ridesCompleted: 23,
   ridesPosted: 15,
   ridesJoined: 8,
+  avatarUrl: undefined,
   createdAt: new Date('2024-01-01'),
 };
 
-export const mockRides: Ride[] = [
-  {
-    id: '1',
-    campus: 'MUST',
-    poster: { name: 'Fatima Hassan', initials: 'FH', trust: 4.8, verified: true, gender: 'Female', color: '#E91E63' },
-    from: 'Main Campus Gate',
-    to: 'Mbarara Town Centre',
-    departureType: 'immediate',
-    seatsTotal: 2,
-    seatsTaken: 1,
-    genderPreference: 'same',
-    mode: 'boda',
-    postedAt: new Date(Date.now() - 2 * 60 * 1000),
-    status: 'active',
-  },
-  {
-    id: '2',
-    campus: 'MUST',
-    poster: { name: 'James Otieno', initials: 'JO', trust: 4.5, verified: true, gender: 'Male', color: '#2196F3' },
-    from: 'Hostel A Parking',
-    to: 'Mbarara Market',
-    departureType: 'scheduled',
-    scheduledDate: 'Wed',
-    scheduledTime: '10:00 AM',
-    closesIn: '3 days',
-    seatsTotal: 3,
-    seatsTaken: 1,
-    genderPreference: 'any',
-    mode: 'boda',
-    postedAt: new Date(Date.now() - 5 * 60 * 1000),
-    status: 'active',
-  },
-  {
-    id: '3',
-    campus: 'MUST',
-    poster: { name: 'Grace Wanjiku', initials: 'GW', trust: 4.9, verified: true, gender: 'Female', color: '#9C27B0' },
-    from: 'Library Entrance',
-    to: 'Ruharo',
-    departureType: 'immediate',
-    seatsTotal: 2,
-    seatsTaken: 0,
-    genderPreference: 'same',
-    mode: 'boda',
-    postedAt: new Date(),
-    status: 'active',
-  },
-  {
-    id: '4',
-    campus: 'MUST',
-    poster: { name: 'Brian Kiprop', initials: 'BK', trust: 3.8, verified: false, gender: 'Male', color: '#FF5722' },
-    from: 'Engineering Block',
-    to: 'Kakyeka Stage',
-    departureType: 'scheduled',
-    scheduledDate: 'Fri',
-    scheduledTime: '5:30 PM',
-    closesIn: '5 days',
-    seatsTotal: 2,
-    seatsTaken: 0,
-    genderPreference: 'any',
-    mode: 'boda',
-    postedAt: new Date(Date.now() - 10 * 60 * 1000),
-    status: 'active',
-  },
-  {
-    id: '5',
-    campus: 'MUST',
-    poster: { name: 'Aisha Mohamed', initials: 'AM', trust: 4.6, verified: true, gender: 'Female', color: '#00BCD4' },
-    from: 'Science Labs',
-    to: 'Booma Grounds',
-    departureType: 'immediate',
-    seatsTotal: 2,
-    seatsTaken: 1,
-    genderPreference: 'same',
-    mode: 'boda',
-    postedAt: new Date(Date.now() - 60 * 1000),
-    status: 'active',
-  },
-];
+export const mockRides: Ride[] = [];
 
-export const mockJoinRequests: JoinRequest[] = [
-  {
-    id: '1',
-    rideId: '2',
-    requester: { name: 'Sarah Kimani', initials: 'SK', trust: 4.3, verified: true, gender: 'Female', color: '#4CAF50' },
-    status: 'pending',
-    requestedAt: new Date(Date.now() - 3 * 60 * 1000),
-  },
-  {
-    id: '2',
-    rideId: '2',
-    requester: { name: 'Diana Chebet', initials: 'DC', trust: 4.7, verified: true, gender: 'Female', color: '#FF9800' },
-    status: 'pending',
-    requestedAt: new Date(Date.now() - 60 * 1000),
-  },
-  {
-    id: '3',
-    rideId: '2',
-    requester: { name: 'Lucy Wambui', initials: 'LW', trust: 3.9, verified: false, gender: 'Female', color: '#795548' },
-    status: 'pending',
-    requestedAt: new Date(),
-  },
-];
+export const mockJoinRequests: JoinRequest[] = [];
 
 export const mockMessages: Message[] = [
   { id: '1', senderId: '2', senderName: 'Fatima', text: "Hey! I'm at the gate now, near the security desk.", timestamp: new Date('2024-01-15T17:28:00'), isMine: false },
@@ -135,14 +38,7 @@ export const mockNotifications: Notification[] = [
   { id: '6', type: 'success', icon: 'shield-halved', title: 'Safety Verified', description: 'Your Safety PIN was confirmed for ride #47', timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000), read: true },
 ];
 
-export const mockRideHistory: RideHistory[] = [
-  { id: '47', rideId: '47', date: 'Today', from: 'Main Campus', to: 'Town Centre', poster: 'Fatima Hassan', rating: 5, mode: 'boda' },
-  { id: '44', rideId: '44', date: 'Yesterday', from: 'Hostel B', to: 'Mbarara Market', poster: 'You', rating: 4, mode: 'boda' },
-  { id: '41', rideId: '41', date: 'Dec 18', from: 'Library', to: 'Ruharo', poster: 'Grace Wanjiku', rating: 5, mode: 'boda' },
-  { id: '39', rideId: '39', date: 'Dec 17', from: 'Engineering', to: 'Kakyeka Stage', poster: 'You', rating: 4, mode: 'boda' },
-  { id: '35', rideId: '35', date: 'Dec 15', from: 'Main Gate', to: 'Booma Grounds', poster: 'Aisha Mohamed', rating: 5, mode: 'boda' },
-  { id: '30', rideId: '30', date: 'Dec 12', from: 'Hostel A', to: 'Town Centre', poster: 'You', rating: 4, mode: 'boda' },
-];
+export const mockRideHistory: RideHistory[] = [];
 
 export const mockPerson: Person = {
   name: 'Fatima Hassan',

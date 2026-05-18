@@ -1,11 +1,12 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, ThemeToggle } from '../../../components/ui';
-import { mockUser } from '../../../data/mockData';
 import { useTheme } from '../../../hooks/useTheme';
 import { useAuth } from '../../../context';
+import { supabase } from '../../../lib/supabase';
 
 const settings = [
   { icon: 'create', label: 'Edit Profile', action: 'edit-profile', color: '#00E676' },
@@ -22,9 +23,63 @@ const settings = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { isDark } = useTheme();
-  const { logout } = useAuth();
-  const initials = mockUser.name.split(' ').map((n) => n[0]).join('');
+  const { colors, isDark } = useTheme();
+  const { logout, user, updateUser } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const initials = user?.name?.split(' ').map((n) => n[0]).join('') || 'U';
+
+  const pickAvatar = async () => {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      const file = result.assets[0];
+      const MAX_SIZE = 5 * 1024 * 1024;
+      if (file.fileSize && file.fileSize > MAX_SIZE) {
+        Alert.alert('Image Too Large', 'Please select an image under 5MB.');
+        return;
+      }
+
+      setUploadingAvatar(true);
+      const ext = file.uri.split('.').pop() || 'jpg';
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: `image/${ext}`,
+        name: `avatar.${ext}`,
+      } as any);
+
+      const filePath = `${user?.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, formData, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      await updateUser({ avatarUrl: urlData.publicUrl });
+    } catch (error) {
+      console.log('Error uploading avatar:', error);
+      Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSettingPress = async (action: string) => {
     if (action === 'logout') {
@@ -40,9 +95,36 @@ export default function ProfileScreen() {
     <SafeAreaView className="flex-1 bg-bg-phone">
       <ScrollView className="flex-1 px-5 pb-24 bg-bg-phone">
         <View className="items-center py-5">
-<Avatar initials={initials} size="xl" />
+          <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar}>
+            <View className="relative">
+              {uploadingAvatar ? (
+                <View
+                  className="items-center justify-center"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: `${colors.accent.DEFAULT}20`,
+                  }}
+                >
+                  <ActivityIndicator size="large" color={colors.accent.DEFAULT} />
+                </View>
+              ) : (
+                <Avatar initials={initials} size="xl" imageUrl={user?.avatarUrl} />
+              )}
+              <View
+                className="absolute -bottom-1 -right-1 rounded-full p-1.5 border-2"
+                style={{
+                  backgroundColor: colors.accent.DEFAULT,
+                  borderColor: colors.bg.phone,
+                }}
+              >
+                <Ionicons name="camera" size={12} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
 <Text className="font-display text-xl font-bold mt-3.5 text-text">
-  {mockUser.name}
+  {user?.name || 'User'}
 </Text>
         </View>
 
@@ -53,20 +135,20 @@ export default function ProfileScreen() {
               Trust Score
             </Text>
             <Text className="font-display text-5xl font-bold text-accent">
-              {mockUser.trust.toFixed(1)}
+              {user?.trust?.toFixed(1) || '0.0'}
             </Text>
             <View className="flex-row gap-1 mt-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Ionicons
                   key={star}
-                  name={star <= Math.round(mockUser.trust) ? 'star' : 'star-outline'}
+                  name={star <= Math.round(user?.trust || 0) ? 'star' : 'star-outline'}
                   size={14}
                   className="text-amber"
                 />
               ))}
             </View>
             <Text className="text-xs mt-2 text-text-sec">
-              Based on {mockUser.ridesCompleted} ride ratings
+              Based on {user?.ridesCompleted || 0} ride ratings
             </Text>
           </View>
         </View>
@@ -74,19 +156,19 @@ export default function ProfileScreen() {
         <View className="flex-row gap-2.5 mb-4">
           <View className="flex-1 rounded-2xl p-4 items-center bg-bg-card border border-border">
             <Text className="font-display text-xl font-bold text-text">
-              {mockUser.ridesCompleted}
+              {user?.ridesCompleted || 0}
             </Text>
             <Text className="text-xs mt-1 text-text-muted">Completed</Text>
           </View>
           <View className="flex-1 rounded-2xl p-4 items-center bg-bg-card border border-border">
             <Text className="font-display text-xl font-bold text-accent">
-              {mockUser.ridesPosted}
+              {user?.ridesPosted || 0}
             </Text>
             <Text className="text-xs mt-1 text-text-muted">Posted</Text>
           </View>
           <View className="flex-1 rounded-2xl p-4 items-center bg-bg-card border border-border">
             <Text className="font-display text-xl font-bold text-amber">
-              {mockUser.ridesJoined}
+              {user?.ridesJoined || 0}
             </Text>
             <Text className="text-xs mt-1 text-text-muted">Joined</Text>
           </View>
@@ -98,19 +180,19 @@ export default function ProfileScreen() {
         <View className="rounded-2xl px-4 py-1 mb-4 bg-bg-card border border-border">
           <View className="flex-row items-center gap-3 py-3 border-b border-border">
             <Text className="text-xs w-20 text-text-muted">Email</Text>
-            <Text className="text-sm font-medium flex-1 text-text">{mockUser.email}</Text>
+            <Text className="text-sm font-medium flex-1 text-text">{user?.email || ''}</Text>
           </View>
           <View className="flex-row items-center gap-3 py-3 border-b border-border">
             <Text className="text-xs w-20 text-text-muted">Gender</Text>
-            <Text className="text-sm font-medium flex-1 text-text">{mockUser.gender}</Text>
+            <Text className="text-sm font-medium flex-1 text-text">{user?.gender || ''}</Text>
           </View>
           <View className="flex-row items-center gap-3 py-3 border-b border-border">
             <Text className="text-xs w-20 text-text-muted">University</Text>
-            <Text className="text-sm font-medium flex-1 text-text">{mockUser.campusShort}</Text>
+            <Text className="text-sm font-medium flex-1 text-text">{user?.campusShort || ''}</Text>
           </View>
           <View className="flex-row items-center gap-3 py-3">
             <Text className="text-xs w-20 text-text-muted">Hostel</Text>
-            <Text className="text-sm font-medium flex-1 text-text">{mockUser.hostel}</Text>
+            <Text className="text-sm font-medium flex-1 text-text">{user?.hostel || ''}</Text>
           </View>
         </View>
 

@@ -3,12 +3,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { NotificationItem } from '../../components';
 import { BackButton } from '../../components/ui';
-import { mockNotifications } from '../../data/mockData';
+import { useNotifications } from '../../context';
+import { useEffect } from 'react';
 import { Notification } from '../../types';
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+
+  useEffect(() => {
+    markAllAsRead();
+  }, []);
+
+  const handleNotificationPress = (id: string) => {
+    markAsRead(id);
+  };
+
+  const convertToNotification = (appNotification: any): Notification => ({
+    id: appNotification.id,
+    type: appNotification.type as 'success' | 'warning' | 'error' | 'info',
+    icon: appNotification.icon,
+    title: appNotification.title,
+    description: appNotification.description,
+    timestamp: appNotification.timestamp,
+    read: appNotification.read,
+  });
 
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
@@ -18,26 +37,38 @@ export default function NotificationsScreen() {
           <Text className="font-display text-xl font-bold flex-1 text-text">
             Notifications
           </Text>
-          <TouchableOpacity>
-            <Text className="text-xs font-semibold text-accent">Mark all read</Text>
-          </TouchableOpacity>
+          {unreadCount > 0 && (
+            <TouchableOpacity onPress={markAllAsRead}>
+              <Text className="text-xs font-semibold text-accent">Mark all read</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View className="flex-row items-center gap-1.5 py-2 mb-3">
-          <View className="w-2 h-2 rounded-full bg-red" />
-          <Text className="text-sm text-text-sec">
-            <Text className="font-semibold text-text">{unreadCount} unread</Text> notifications
-          </Text>
-        </View>
+        {unreadCount > 0 && (
+          <View className="flex-row items-center gap-1.5 py-2 mb-3">
+            <View className="w-2 h-2 rounded-full bg-red" />
+            <Text className="text-sm text-text-sec">
+              <Text className="font-semibold text-text">{unreadCount} unread</Text> notifications
+            </Text>
+          </View>
+        )}
 
         <View className="pb-6">
-          {mockNotifications.map((notification) => (
-            <NotificationItem
-              key={notification.id}
-              notification={notification as Notification}
-              onPress={() => {}}
-            />
-          ))}
+          {notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={convertToNotification(notification)}
+                onPress={() => handleNotificationPress(notification.id)}
+              />
+            ))
+          ) : (
+            <View className="py-12 items-center">
+              <Text className="text-sm text-text-muted text-center">
+                No notifications yet
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

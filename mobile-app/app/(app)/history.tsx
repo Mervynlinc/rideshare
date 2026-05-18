@@ -3,7 +3,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BackButton } from '../../components/ui';
-import { mockRideHistory } from '../../data/mockData';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -18,45 +17,11 @@ export default function HistoryScreen() {
           </Text>
         </View>
 
-        <Text className="text-xs mb-4 text-text-muted">
-          {mockRideHistory.length} rides completed
-        </Text>
-
-        <View className="gap-2.5">
-          {mockRideHistory.map((ride) => (
-            <TouchableOpacity
-              key={ride.id}
-              className="rounded-2xl p-4 bg-bg-card border border-border"
-            >
-              <View className="flex-row justify-between items-start mb-2.5">
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-text">
-                    {ride.from} → {ride.to}
-                  </Text>
-                  <Text className="text-xs mt-1 text-text-muted">
-                    {ride.date} · {ride.poster}
-                  </Text>
-                </View>
-                <View className="flex-row gap-0.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Ionicons
-                      key={star}
-                      name={star <= ride.rating ? 'star' : 'star-outline'}
-                      size={10}
-                      className="text-amber"
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <View className="flex-row items-center gap-2 pt-2.5 border-t border-border">
-                <Ionicons name="bicycle" size={11} className="text-accent" />
-                <Text className="text-xs text-text-muted">Boda-boda</Text>
-                <Text className="text-xs text-text-dim">·</Text>
-                <Text className="text-xs text-text-muted">Ride #{ride.rideId}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+        <View className="py-12 items-center">
+          <Ionicons name="time-outline" size={48} className="text-icon-muted mb-3" />
+          <Text className="text-sm text-text-muted text-center">
+            No rides completed yet
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

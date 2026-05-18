@@ -1,46 +1,119 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BackButton } from '../../components/ui';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../context';
 
-const TEMP_PIN = '123456';
+const RESEND_COUNTDOWN_SECONDS = 180; // 3 minutes
 
 export default function OTPScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { colors } = useTheme();
-  const { login } = useAuth();
+  const { verifyAndCreateAccount, sendSignupOTP } = useAuth();
+
+  const isPasswordReset = params.type === 'password-reset';
+  const isSignup = params.type === 'signup';
+  const email = (params.email as string) || 'alex@must.ac.ug';
+  const signupData = isSignup ? JSON.parse((params.signupData as string) || '{}') : null;
+
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [countdown, setCountdown] = useState(RESEND_COUNTDOWN_SECONDS);
+  const [canResend, setCanResend] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          setCanResend(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleVerify = async () => {
-    if (code === TEMP_PIN) {
-      await login('alex@must.ac.ug', 'verified');
-    } else {
-      setError('Invalid PIN. Use: ' + TEMP_PIN);
+    if (code.length !== 6) {
+      setError('Please enter a 6-digit code');
+      return;
+    }
+
+    setIsVerifying(true);
+    setError('');
+
+    try {
+      if (isSignup && signupData) {
+        await verifyAndCreateAccount(email, code, signupData);
+        // Wait a moment for auth state to update before navigation
+        await new Promise(resolve => setTimeout(resolve, 500));
+        router.replace('/(app)/(tabs)/home');
+      } else if (isPasswordReset) {
+        router.push({
+          pathname: '/(auth)/reset-password',
+          params: { email }
+        });
+      } else {
+        router.replace('/(app)/(tabs)/home');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Verification failed. Please try again.');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
-  const handleAutoFill = () => {
-    setCode(TEMP_PIN);
-    setError('');
+  const handleResend = async () => {
+    if (!canResend) return;
+
+    try {
+      if (isSignup && signupData) {
+        await sendSignupOTP(signupData);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      setCountdown(RESEND_COUNTDOWN_SECONDS);
+      setCanResend(false);
+      setError('');
+    } catch (err: any) {
+      if (err.message?.includes('rate limit') || err.message?.includes('Rate limit')) {
+        setError('Too many requests. Please wait a few minutes before requesting another code.');
+      } else {
+        setError('Failed to resend code. Please try again.');
+      }
+    }
   };
 
   return (
-<SafeAreaView className="flex-1" style={{ backgroundColor: colors.bg.phone }}>
-<View className="flex-1 items-center px-5 pt-6" style={{ backgroundColor: colors.bg.phone }}>
-<View className="w-full">
-<BackButton />
-</View>
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.bg.phone }}>
+      <View className="flex-1 items-center px-5 pt-6" style={{ backgroundColor: colors.bg.phone }}>
+        <View className="w-full">
+          <BackButton />
+        </View>
 
         <View
           className="w-16 h-16 rounded-full items-center justify-center mt-6 mb-6"
           style={{ backgroundColor: colors.accent.glow, borderWidth: 2, borderColor: 'rgba(0,230,118,0.15)' }}
         >
-          <Ionicons name="phone-portrait-outline" size={24} color={colors.accent.DEFAULT} />
+          <Ionicons
+            name={isPasswordReset ? "lock-closed-outline" : "mail-outline"}
+            size={24}
+            color={colors.accent.DEFAULT}
+          />
         </View>
 
         <Text className="font-display text-xl font-bold text-center mb-1.5" style={{ color: colors.text.DEFAULT }}>
@@ -48,7 +121,7 @@ export default function OTPScreen() {
         </Text>
         <Text className="text-center text-sm mb-8 leading-6" style={{ color: colors.text.sec }}>
           Enter the 6-digit code sent to{'\n'}
-          <Text className="font-semibold" style={{ color: colors.text.DEFAULT }}>alex@must.ac.ug</Text>
+          <Text className="font-semibold" style={{ color: colors.text.DEFAULT }}>{email}</Text>
         </Text>
 
         <View className="flex-row gap-2 mb-2">
@@ -84,23 +157,9 @@ export default function OTPScreen() {
           autoFocus
         />
 
-        <TouchableOpacity
-          onPress={handleAutoFill}
-          className="rounded-lg px-4 py-2 mb-4"
-          style={{ backgroundColor: 'rgba(255,179,0,0.2)', borderWidth: 1, borderColor: 'rgba(255,179,0,0.3)' }}
-        >
-          <Text className="text-xs font-semibold" style={{ color: colors.amber.DEFAULT }}>
-            Dev Mode: Tap to auto-fill PIN
-          </Text>
-        </TouchableOpacity>
-
         {error ? (
           <Text className="text-sm mb-2" style={{ color: colors.red.DEFAULT }}>{error}</Text>
         ) : null}
-
-        <Text className="text-sm mb-6" style={{ color: colors.text.muted }}>
-          Use PIN: <Text className="font-semibold" style={{ color: colors.accent.DEFAULT }}>{TEMP_PIN}</Text>
-        </Text>
 
         <TouchableOpacity
           className="rounded-xl py-4 px-12 items-center"
@@ -108,21 +167,36 @@ export default function OTPScreen() {
             backgroundColor: code.length === 6 ? colors.accent.DEFAULT : colors.bg.card,
             borderWidth: code.length === 6 ? 0 : 1,
             borderColor: code.length === 6 ? 'transparent' : colors.border.DEFAULT,
+            opacity: isVerifying ? 0.6 : 1
           }}
           onPress={handleVerify}
-          disabled={code.length !== 6}
+          disabled={code.length !== 6 || isVerifying}
         >
           <Text
             className="font-semibold text-base"
             style={{ color: code.length === 6 ? '#000' : colors.text.muted }}
           >
-            Verify
+            {isVerifying ? 'Verifying...' : 'Verify'}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity className="mt-4">
-          <Text className="text-sm" style={{ color: colors.text.muted }}>
-            Didn&apos;t receive the code? <Text style={{ color: colors.accent.DEFAULT }}>Resend</Text>
+        <TouchableOpacity 
+          onPress={handleResend} 
+          className="mt-4"
+          disabled={!canResend}
+        >
+          <Text 
+            className="text-sm" 
+            style={{ 
+              color: canResend ? colors.accent.DEFAULT : colors.text.muted,
+              opacity: canResend ? 1 : 0.5
+            }}
+          >
+            {canResend ? (
+              <>Didn't receive the code? <Text style={{ color: colors.accent.DEFAULT }}>Resend</Text></>
+            ) : (
+              <>Resend code in <Text style={{ color: colors.accent.DEFAULT }}>{formatTime(countdown)}</Text></>
+            )}
           </Text>
         </TouchableOpacity>
       </View>
