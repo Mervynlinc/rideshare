@@ -2,7 +2,7 @@
 
 # dependencies
 node_modules/
-
+supabase/
 # Expo
 .expo/
 dist/
@@ -32,12 +32,14 @@ yarn-error.*
 
 # local env files
 .env*.local
+google-services.json
+.env
 
 # typescript
 *.tsbuildinfo
 
 app-example
-
+DB.sql
 # generated native folders
 /ios
 /android

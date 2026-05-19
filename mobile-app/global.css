@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg-page: #FFFFFF;
+  --bg-phone: #F5F5F5;
+  --bg-card: #FFFFFF;
+  --bg-card-alt: #FAFAFA;
+  --bg-input: #FFFFFF;
+  --border: #E5E5E5;
+  --border-light: #F0F0F0;
+  --accent: #00C853;
+  --accent-dim: #00A844;
+  --accent-glow: rgba(0, 200, 83, 0.12);
+  --amber: #FF9800;
+  --red: #D32F2F;
+  --red-dim: rgba(211, 47, 47, 0.12);
+  --icon: #1A1A1A;
+  --icon-muted: #666666;
+  --text: #1A1A1A;
+  --text-sec: #666666;
+  --text-muted: #999999;
+  --text-dim: #CCCCCC;
+}
+
+.dark {
+  --bg-page: #080808;
+  --bg-phone: #0F0F0F;
+  --bg-card: #181818;
+  --bg-card-alt: #1E1E1E;
+  --bg-input: #161616;
+  --border: #272727;
+  --border-light: #333333;
+  --accent: #00E676;
+  --accent-dim: #00C853;
+  --accent-glow: rgba(0, 230, 118, 0.12);
+  --amber: #FFB300;
+  --red: #FF1744;
+  --red-dim: rgba(255, 23, 68, 0.12);
+  --icon: #FFFFFF;
+  --icon-muted: #A0A0A0;
+  --text: #FFFFFF;
+  --text-sec: #A0A0A0;
+  --text-muted: #5A5A5A;
+  --text-dim: #3A3A3A;
+}

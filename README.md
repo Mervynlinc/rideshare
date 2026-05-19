@@ -84,6 +84,6 @@ This project is proprietary software. All rights reserved. See [LICENSE](LICENSE
 
 ## Contact
 
-- **Email**: [rideshare2026.io@gmail.com](mailto:hello@rideshare.ug)
+- **Email**: [rideshare2026.io@gmail.com]
 
 ---
