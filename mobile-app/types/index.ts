@@ -23,6 +23,7 @@ export interface Person {
   verified: boolean;
   gender: string;
   color: string;
+  avatar_url: string | null;
 }
 
 export type DepartureType = 'immediate' | 'scheduled';

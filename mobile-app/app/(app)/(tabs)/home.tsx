@@ -38,6 +38,8 @@ export default function HomeScreen() {
 
   const filteredRides = useMemo(() => {
     return rides.filter((ride) => {
+      if (ride.posterId === user?.id) return false;
+
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesDestination =

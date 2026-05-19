@@ -1,15 +1,100 @@
-import { useState } from 'react';
-import { View, Text, TextInput, ScrollView,TouchableOpacity } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../components/ui';
-import { mockPerson } from '../../data/mockData';
+import { useAuth } from '../../context';
+import { supabase } from '../../lib/supabase';
 
 export default function RideCompleteScreen() {
   const router = useRouter();
-  const [rating, setRating] = useState(4);
+  const { rideId, buddyName } = useLocalSearchParams<{ rideId: string; buddyName: string }>();
+  const { user } = useAuth();
+
+  const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [rideInfo, setRideInfo] = useState<{ from_location: string; to_location: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (rideId) {
+      fetchRideInfo();
+    } else {
+      setLoading(false);
+    }
+  }, [rideId]);
+
+  const fetchRideInfo = async () => {
+    try {
+      const { data } = await supabase
+        .from('rides')
+        .select('from_location, to_location')
+        .eq('id', rideId)
+        .single();
+      setRideInfo(data);
+    } catch (err) {
+      console.error('Error fetching ride info:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (submitting || rating === 0) return;
+    setSubmitting(true);
+
+    try {
+      if (rideId && user) {
+        await supabase.from('ratings').insert({
+          ride_id: rideId,
+          rater_id: user.id,
+          rating,
+          comment: comment || null,
+        });
+      }
+
+      setSubmitted(true);
+
+      setTimeout(() => {
+        router.replace('/(app)/(tabs)/home');
+      }, 1500);
+    } catch (err) {
+      console.error('Error submitting rating:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-phone">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-phone">
+        <View className="flex-1 items-center justify-center px-5">
+          <View className="w-20 h-20 rounded-full items-center justify-center mb-5 bg-accent-glow border-2 border-accent/20">
+            <Ionicons name="checkmark-circle" size={40} className="text-accent" />
+          </View>
+          <Text className="font-display text-2xl font-bold text-center mb-2 text-text">
+            Rating Submitted!
+          </Text>
+          <Text className="text-text-muted text-sm text-center">
+            Thanks for your feedback.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
@@ -22,13 +107,13 @@ export default function RideCompleteScreen() {
           Ride Complete
         </Text>
         <Text className="text-text-muted text-sm mb-7">
-          Main Campus Gate → Mbarara Town Centre
+          {rideInfo ? `${rideInfo.from_location} → ${rideInfo.to_location}` : 'Ride completed'}
         </Text>
 
         <View className="bg-bg-card border border-border rounded-2xl p-5 w-full mb-7">
           <View className="flex-row justify-between mb-3.5 pb-3.5 border-b border-border">
             <Text className="text-text-muted text-sm">Ride Buddy</Text>
-            <Text className="text-text text-sm font-medium">{mockPerson.name}</Text>
+            <Text className="text-text text-sm font-medium">{buddyName || 'Ride Buddy'}</Text>
           </View>
           <View className="flex-row justify-between mb-3.5 pb-3.5 border-b border-border">
             <Text className="text-text-muted text-sm">Mode</Text>
@@ -37,16 +122,12 @@ export default function RideCompleteScreen() {
               <Text className="text-text text-sm font-medium">Boda-boda</Text>
             </View>
           </View>
-          <View className="flex-row justify-between">
-            <Text className="text-text-muted text-sm">Duration</Text>
-            <Text className="text-text text-sm font-medium">18 min</Text>
-          </View>
         </View>
 
         <View className="w-full">
           <Text className="text-text text-sm font-semibold mb-1">Rate your Ride Buddy</Text>
           <Text className="text-text-muted text-xs mb-4">
-            How was your experience with {mockPerson.name}?
+            How was your experience with {buddyName || 'your buddy'}?
           </Text>
 
           <View className="flex-row gap-1.5 justify-center mb-4">
@@ -74,8 +155,10 @@ export default function RideCompleteScreen() {
         </View>
 
         <Button
-          title="Submit Rating"
-          onPress={() => router.replace('/(app)/(tabs)/home')}
+          title={rating === 0 ? 'Select a rating' : 'Submit Rating'}
+          onPress={handleSubmit}
+          disabled={rating === 0 || submitting}
+          loading={submitting}
         />
       </ScrollView>
     </SafeAreaView>

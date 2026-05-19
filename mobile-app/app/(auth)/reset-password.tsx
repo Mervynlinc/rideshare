@@ -5,10 +5,13 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BackButton } from '../../components/ui';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../context';
+import { supabase } from '../../lib/supabase';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { setResettingPassword } = useAuth();
 
   const [formData, setFormData] = useState({
     password: '',
@@ -42,18 +45,22 @@ export default function ResetPasswordScreen() {
     setError('');
 
     try {
-      // In a real app, this would call your backend to update the password
-      // For now, we'll simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { error } = await supabase.auth.updateUser({
+        password: formData.password,
+      });
+
+      if (error) throw error;
 
       setSuccess(true);
 
-      // Navigate to login after successful password reset
+      await supabase.auth.signOut();
+      setResettingPassword(false);
+
       setTimeout(() => {
         router.replace('/(auth)/login');
       }, 2000);
-    } catch {
-      setError('Failed to update password. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update password. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

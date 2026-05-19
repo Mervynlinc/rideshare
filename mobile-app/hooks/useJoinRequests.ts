@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthProvider';
 
@@ -34,6 +34,7 @@ export function useJoinRequests() {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchRequests = useCallback(async () => {
     if (!user) return;
@@ -117,8 +118,10 @@ export function useJoinRequests() {
   useEffect(() => {
     fetchRequests();
 
+    // Use a unique channel name to avoid conflicts when multiple screens use this hook
+    const channelName = `join_requests_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel('join_requests_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -131,8 +134,11 @@ export function useJoinRequests() {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [fetchRequests, user?.id]);
 
@@ -197,8 +203,62 @@ export function useJoinRequests() {
     }
   };
 
+  const sendRequestAcceptedNotification = async (requestId: string, rideId: string) => {
+    try {
+      const [rideResult, requestResult] = await Promise.all([
+        supabase.from('rides').select('poster_id, to_location').eq('id', rideId).single(),
+        supabase.from('join_requests').select('requester_id').eq('id', requestId).single(),
+      ]);
+
+      if (!rideResult.data || !requestResult.data) return;
+
+      const ride = rideResult.data;
+      const request = requestResult.data;
+
+      const { data: poster } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', ride.poster_id)
+        .single();
+
+      if (!poster) return;
+
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: request.requester_id,
+          title: 'Request Accepted',
+          body: `${poster.name} accepted your request to join their ride to ${ride.to_location}`,
+          category: 'ride_requests',
+          data: { rideId, type: 'request_accepted' },
+        }),
+      });
+    } catch (err) {
+      console.error('Error sending accept notification:', err);
+    }
+  };
+
   const respondToRequest = async (requestId: string, response: 'accepted' | 'declined', message?: string) => {
     try {
+      const { data: requestData, error: fetchError } = await supabase
+        .from('join_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (fetchError || !requestData) throw new Error('Request not found');
+
+      // Fetch ride info for poster_id and location
+      const { data: ride } = await supabase
+        .from('rides')
+        .select('poster_id, from_location, to_location, seats_taken')
+        .eq('id', requestData.ride_id)
+        .single();
+
+      if (!ride) throw new Error('Ride not found');
+
       const updates: any = {
         status: response,
         responded_at: new Date().toISOString(),
@@ -215,17 +275,49 @@ export function useJoinRequests() {
 
       if (error) throw error;
 
-      // If accepted, add to ride participants
+      // If accepted, add to ride participants and create chat
       if (response === 'accepted') {
-        const request = requests.find(r => r.id === requestId);
-        if (request) {
-          await supabase.from('ride_participants').insert({
-            ride_id: request.ride_id,
-            user_id: request.requester_id,
-            status: 'accepted',
-            accepted_at: new Date().toISOString(),
+        // Create ride_participants record for requester
+        await supabase.from('ride_participants').insert({
+          ride_id: requestData.ride_id,
+          user_id: requestData.requester_id,
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+        });
+
+        // Create ride_participants record for poster (upsert in case they already have one)
+        await supabase.from('ride_participants').upsert({
+          ride_id: requestData.ride_id,
+          user_id: ride.poster_id,
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+        }, { onConflict: 'ride_id,user_id' });
+
+        // Increment seats_taken on the ride
+        await supabase
+          .from('rides')
+          .update({ seats_taken: (ride.seats_taken || 0) + 1 })
+          .eq('id', requestData.ride_id);
+
+        // Create chat if it doesn't exist
+        const { data: existingChat } = await supabase
+          .from('chats')
+          .select('id')
+          .eq('ride_id', requestData.ride_id)
+          .maybeSingle();
+
+        if (!existingChat) {
+          await supabase.from('chats').insert({
+            ride_id: requestData.ride_id,
+            ride_from: ride.from_location,
+            ride_to: ride.to_location,
+            requester_id: requestData.requester_id,
+            poster_id: ride.poster_id,
           });
         }
+
+        // Send push notification to requester
+        await sendRequestAcceptedNotification(requestId, requestData.ride_id);
       }
 
       await fetchRequests();

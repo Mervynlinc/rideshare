@@ -8,7 +8,8 @@ import { useRides } from '../../../hooks/useRides';
 import { useAuth } from '../../../context';
 import { useJoinRequests } from '../../../hooks/useJoinRequests';
 import { useChats } from '../../../hooks/useChats';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ride } from '../../../types';
 
 function useCountdown(expiresAt?: string) {
@@ -56,6 +57,7 @@ export default function RideDetailScreen() {
   const [joining, setJoining] = useState(false);
   const [existingRequest, setExistingRequest] = useState<any>(null);
   const [seatsAvailable, setSeatsAvailable] = useState(true);
+  const [hasAcceptedChat, setHasAcceptedChat] = useState(false);
 
   const isOwnRide = ride?.posterId === user?.id;
   const countdown = useCountdown(ride?.expiresAt);
@@ -68,8 +70,24 @@ export default function RideDetailScreen() {
         setLoading(false);
       });
       checkExistingRequest();
+      checkAcceptedChat();
     }
   }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (id && !loading) {
+        checkExistingRequest();
+        checkAcceptedChat();
+        fetchRideById(id).then((r) => {
+          if (r) {
+            setRide(r);
+            setSeatsAvailable((r.seatsTotal || 0) - (r.seatsTaken || 0) > 0);
+          }
+        });
+      }
+    }, [id, loading]),
+  );
 
   const checkExistingRequest = async () => {
     if (!id || !user) return;
@@ -77,31 +95,20 @@ export default function RideDetailScreen() {
     setExistingRequest(request);
   };
 
+  const checkAcceptedChat = async () => {
+    if (!id) return;
+    const chat = await getChatByRideId(id);
+    setHasAcceptedChat(!!chat);
+  };
+
   const handleJoinRequest = async () => {
     if (!id || joining) return;
 
     setJoining(true);
     try {
-      // Create the join request
       await createRequest({ rideId: id });
-
-      // Get or find the chat
-      const chat = await getChatByRideId(id);
-
-      if (chat) {
-        // Navigate to chat
-        router.push(`/chat/${chat.id}`);
-      } else {
-        // Chat might not be created yet, wait a bit and try again
-        setTimeout(async () => {
-          const retryChat = await getChatByRideId(id);
-          if (retryChat) {
-            router.push(`/chat/${retryChat.id}`);
-          } else {
-            router.back();
-          }
-        }, 1000);
-      }
+      // Re-check existing request to update the UI
+      await checkExistingRequest();
     } catch (err: any) {
       console.error('Error joining ride:', err);
     } finally {
@@ -248,6 +255,13 @@ export default function RideDetailScreen() {
 
         {isOwnRide ? (
           <View className="gap-3">
+            {hasAcceptedChat && (
+              <Button
+                title="Open Chat"
+                onPress={openExistingChat}
+                icon={<Ionicons name="chatbubbles" size={16} color={colors.icon.DEFAULT} />}
+              />
+            )}
             <TouchableOpacity
               className="rounded-2xl py-4 items-center flex-row justify-center gap-2"
               style={{ backgroundColor: `${colors.red.DEFAULT}12` }}
@@ -272,22 +286,31 @@ export default function RideDetailScreen() {
             </Text>
           </View>
         ) : existingRequest?.status === 'pending' ? (
-          <TouchableOpacity
+          <View
             className="rounded-2xl py-4 items-center flex-row justify-center gap-2"
-            style={{ backgroundColor: `${colors.accent.DEFAULT}12` }}
-            onPress={openExistingChat}
+            style={{ backgroundColor: `${colors.amber.DEFAULT}15` }}
           >
-            <Ionicons name="chatbubbles" size={18} color={colors.accent.DEFAULT} />
-            <Text className="font-semibold text-base" style={{ color: colors.accent.DEFAULT }}>
-              View Request Status
+            <Ionicons name="time" size={18} color={colors.amber.DEFAULT} />
+            <Text className="font-semibold text-base" style={{ color: colors.amber.DEFAULT }}>
+              Request Pending
             </Text>
-          </TouchableOpacity>
+          </View>
         ) : existingRequest?.status === 'accepted' ? (
           <Button
             title="Open Chat"
             onPress={openExistingChat}
             icon={<Ionicons name="chatbubbles" size={16} color={colors.icon.DEFAULT} />}
           />
+        ) : existingRequest?.status === 'declined' ? (
+          <View
+            className="rounded-2xl py-4 items-center flex-row justify-center gap-2"
+            style={{ backgroundColor: `${colors.red.DEFAULT}12` }}
+          >
+            <Ionicons name="close-circle-outline" size={18} color={colors.red.DEFAULT} />
+            <Text className="font-semibold text-base" style={{ color: colors.red.DEFAULT }}>
+              Request Declined
+            </Text>
+          </View>
         ) : (
           <Button
             title={joining ? 'Sending Request...' : 'Request to Join'}

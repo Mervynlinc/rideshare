@@ -104,14 +104,17 @@ export function useMessages({ chatId }: UseMessagesParams) {
             .single();
 
           if (newMessage) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                ...newMessage,
-                is_mine: newMessage.sender_id === user?.id,
-                sender_name: newMessage.sender?.name,
-              },
-            ]);
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMessage.id)) return prev;
+              return [
+                ...prev,
+                {
+                  ...newMessage,
+                  is_mine: newMessage.sender_id === user?.id,
+                  sender_name: newMessage.sender?.name,
+                },
+              ];
+            });
 
             // If the message is not from me, mark it as read
             if (newMessage.sender_id !== user?.id) {
@@ -184,15 +187,6 @@ export function useMessages({ chatId }: UseMessagesParams) {
         .from('chats')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', chatId);
-
-      // Add message to state immediately
-      const newMessage: Message = {
-        ...data,
-        is_mine: true,
-        sender_name: user.name,
-      };
-
-      setMessages((prev) => [...prev, newMessage]);
 
       return data;
     } catch (err: any) {

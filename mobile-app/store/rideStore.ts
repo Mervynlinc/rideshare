@@ -2,25 +2,38 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Ride, PostRideData } from '../types';
 
+const POSTER_COLORS = ['#E91E63', '#2196F3', '#9C27B0', '#FF5722', '#00BCD4', '#4CAF50', '#FF9800', '#795348'];
+
+function posterColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return POSTER_COLORS[Math.abs(hash) % POSTER_COLORS.length];
+}
+
 function toRide(db: any, poster: any): Ride {
-  const trust = poster?.trust ?? (poster?.trust_score ? Number(poster.trust_score) : 0);
-  const name = poster?.name || (poster ? 'Rider' : 'Unknown');
-  const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
-  const color = ['#E91E63', '#2196F3', '#9C27B0', '#FF5722', '#00BCD4', '#4CAF50', '#FF9800', '#795348'][
-    Math.floor(Math.random() * 8)
-  ];
+  const name = poster?.name ?? 'Unknown';
+  const initials = name
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return {
     id: db.id,
     posterId: db.poster_id,
-    campus: poster?.campusShort || poster?.campus_short || '',
+    campus: poster?.campus_short ?? poster?.campusShort ?? '',
     poster: {
       name,
       initials,
-      trust,
+      trust: poster?.trust_score ?? poster?.trust ?? 0,
       verified: poster?.verified || false,
-      gender: poster?.gender || 'Other',
-      color,
+      gender: poster?.gender ?? '',
+      color: posterColor(poster?.id ?? ''),
+      avatar_url: poster?.avatar_url ?? poster?.avatarUrl ?? null,
     },
     from: db.from_location,
     to: db.to_location,
@@ -67,7 +80,16 @@ export const useRideStore = create<RideState>((set, get) => ({
     try {
       const { data: ridesData, error: ridesError } = await supabase
         .from('rides')
-        .select('*')
+        .select(`
+          *,
+          poster:poster_id (
+            id,
+            name,
+            gender,
+            trust_score,
+            avatar_url
+          )
+        `)
         .eq('university_id', universityId)
         .eq('status', 'active')
         .order('posted_at', { ascending: false });
@@ -77,41 +99,7 @@ export const useRideStore = create<RideState>((set, get) => ({
       const now = new Date().toISOString();
       const validRides = (ridesData || []).filter((r: any) => !r.expires_at || r.expires_at > now);
 
-      const posterIds = [...new Set(validRides.map((r: any) => r.poster_id))];
-      
-      let posterMap: Record<string, any> = {};
-      if (posterIds.length > 0) {
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('id, name, gender, campus_short, trust_score, verified, avatar_url')
-          .in('id', posterIds);
-        
-        if (usersData) {
-          usersData.forEach((user: any) => {
-            posterMap[user.id] = user;
-          });
-        }
-
-        if (Object.keys(posterMap).length === 0) {
-          const { data: authUsers } = await supabase.auth.admin.listUsers();
-          const authUserMap = new Map();
-          authUsers?.users.forEach((u: any) => {
-            authUserMap.set(u.id, { 
-              id: u.id, 
-              name: u.user_metadata?.name || 'User',
-              gender: u.user_metadata?.gender,
-              verified: u.email_confirmed_at ? true : false
-            });
-          });
-          posterIds.forEach(id => {
-            if (authUserMap.has(id)) {
-              posterMap[id] = authUserMap.get(id);
-            }
-          });
-        }
-      }
-
-      const mapped = validRides.map((r: any) => toRide(r, posterMap[r.poster_id]));
+      const mapped = validRides.map((r: any) => toRide(r, r.poster));
 
       set({ rides: mapped });
     } catch (error) {
@@ -125,7 +113,16 @@ export const useRideStore = create<RideState>((set, get) => ({
     try {
       const { data: rideData, error: rideError } = await supabase
         .from('rides')
-        .select('*')
+        .select(`
+          *,
+          poster:poster_id (
+            id,
+            name,
+            gender,
+            trust_score,
+            avatar_url
+          )
+        `)
         .eq('id', rideId)
         .single();
 
@@ -140,29 +137,7 @@ export const useRideStore = create<RideState>((set, get) => ({
         return null;
       }
 
-      let posterData = null;
-      const { data: userData, error: posterError } = await supabase
-        .from('users')
-        .select('id, name, gender, campus_short, trust_score, verified, avatar_url')
-        .eq('id', rideData.poster_id)
-        .maybeSingle();
-
-      if (userData) {
-        posterData = userData;
-      } else {
-        const { data: authUser } = await supabase.auth.admin.listUsers();
-        const foundAuthUser = authUser?.users.find((u: any) => u.id === rideData.poster_id);
-        if (foundAuthUser) {
-          posterData = {
-            id: foundAuthUser.id,
-            name: foundAuthUser.user_metadata?.name || 'User',
-            gender: foundAuthUser.user_metadata?.gender,
-            verified: !!foundAuthUser.email_confirmed_at
-          };
-        }
-      }
-
-      return toRide(rideData, posterData);
+      return toRide(rideData, rideData.poster);
     } catch (error) {
       console.error('Error fetching ride:', error);
       return null;

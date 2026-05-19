@@ -211,11 +211,6 @@ export default function ChatScreen() {
                 key={message.id}
                 style={{ marginBottom: 8, alignItems: message.is_mine ? 'flex-end' : 'flex-start' }}
               >
-                {!message.is_mine && message.sender_name && (
-                  <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 4, marginBottom: 2 }}>
-                    {message.sender_name}
-                  </Text>
-                )}
                 <View
                   style={{
                     maxWidth: '78%',
