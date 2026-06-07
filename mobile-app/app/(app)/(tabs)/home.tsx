@@ -154,7 +154,7 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(app)/(tabs)/post')}
               >
                 <Text className="text-sm text-accent font-semibold">
-                  Post the first ride
+                  Post a ride
                 </Text>
               </TouchableOpacity>
             )}

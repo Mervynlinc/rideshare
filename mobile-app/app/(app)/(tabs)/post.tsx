@@ -14,14 +14,17 @@ const TIMER_OPTIONS = [
   { label: '1 hr', value: 60 },
   { label: '2 hr', value: 120 },
   { label: '4 hr', value: 240 },
-  { label: 'No expiry', value: 0 },
+  { label: '6 hr', value: 360 },
 ];
+const CUSTOM_EXPIRY = -1;
 
 export default function PostRideScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { postRide } = useRides();
   const [posting, setPosting] = useState(false);
+  const [customExpiryMinutes, setCustomExpiryMinutes] = useState('60');
+  const [customExpiryError, setCustomExpiryError] = useState('');
   const [modal, setModal] = useState<{ visible: boolean; type: 'success' | 'error'; title: string; description: string }>({
     visible: false,
     type: 'success',
@@ -70,11 +73,32 @@ export default function PostRideScreen() {
       return;
     }
 
+    if (formData.expiresIn === CUSTOM_EXPIRY) {
+      const minutes = parseInt(customExpiryMinutes, 10);
+      if (!minutes || minutes < 1) {
+        setCustomExpiryError('Enter at least 1 minute');
+        return;
+      }
+      if (minutes > 360) {
+        setCustomExpiryError('Maximum expiry is 6 hours (360 minutes)');
+        return;
+      }
+    }
+
     setPosting(true);
 
     const scheduledDate = formData.departureType === 1
       ? new Date(Date.now() + selectedDay * 86400000)
       : undefined;
+
+    let effectiveExpiry: number | undefined;
+    if (formData.departureType === 0) {
+      if (formData.expiresIn === CUSTOM_EXPIRY) {
+        effectiveExpiry = parseInt(customExpiryMinutes, 10);
+      } else if (formData.expiresIn > 0) {
+        effectiveExpiry = formData.expiresIn;
+      }
+    }
 
     const rideData: PostRideData = {
       from: formData.from.trim(),
@@ -85,7 +109,7 @@ export default function PostRideScreen() {
       scheduledTime: formData.departureType === 1 ? formData.scheduledTime : undefined,
       seats: formData.seats,
       genderPreference: formData.genderPreference === 0 ? 'any' : 'same',
-      expiresInMinutes: formData.departureType === 0 && formData.expiresIn > 0 ? formData.expiresIn : undefined,
+      expiresInMinutes: effectiveExpiry,
     };
 
     const ride = await postRide(rideData);
@@ -167,18 +191,57 @@ export default function PostRideScreen() {
                   <TouchableOpacity
                     key={opt.value}
                     className={`px-4 py-2.5 rounded-xl border ${formData.expiresIn === opt.value ? 'bg-accent-glow border-accent' : 'bg-bg-card border-border'}`}
-                    onPress={() => setFormData({ ...formData, expiresIn: opt.value })}
+                    onPress={() => {
+                      setFormData({ ...formData, expiresIn: opt.value });
+                      setCustomExpiryError('');
+                    }}
                   >
                     <Text className={`text-sm font-semibold ${formData.expiresIn === opt.value ? 'text-accent' : 'text-text-muted'}`}>
                       {opt.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity
+                  className={`px-4 py-2.5 rounded-xl border ${formData.expiresIn === CUSTOM_EXPIRY ? 'bg-accent-glow border-accent' : 'bg-bg-card border-border'}`}
+                  onPress={() => {
+                    setFormData({ ...formData, expiresIn: CUSTOM_EXPIRY });
+                    setCustomExpiryError('');
+                  }}
+                >
+                  <Text className={`text-sm font-semibold ${formData.expiresIn === CUSTOM_EXPIRY ? 'text-accent' : 'text-text-muted'}`}>
+                    Custom
+                  </Text>
+                </TouchableOpacity>
               </View>
+
+              {formData.expiresIn === CUSTOM_EXPIRY && (
+                <View className="mt-3">
+                  <View className="flex-row items-center gap-2">
+                    <TextInput
+                      className="flex-1 rounded-xl px-4 py-3 text-sm bg-bg-input border border-border text-text"
+                      placeholder="Minutes (1-360)"
+                      placeholderTextColor="rgb(156 163 175)"
+                      keyboardType="number-pad"
+                      value={customExpiryMinutes}
+                      onChangeText={(text) => {
+                        setCustomExpiryMinutes(text);
+                        setCustomExpiryError('');
+                      }}
+                    />
+                    <Text className="text-sm text-text-muted">min</Text>
+                  </View>
+                  {customExpiryError ? (
+                    <Text className="text-xs text-red mt-1.5">{customExpiryError}</Text>
+                  ) : (
+                    <Text className="text-xs text-text-dim mt-1.5">Max 360 minutes (6 hours)</Text>
+                  )}
+                </View>
+              )}
+
               <View className="flex-row items-center gap-1.5 mt-2.5">
                 <Ionicons name="information-circle" size={12} className="text-text-dim" />
                 <Text className="text-xs text-text-dim">
-                  {formData.expiresIn === 0 ? 'Ride will not auto-cancel' : 'Ride auto-cancels after the timer runs out'}
+                  All rides auto-cancel after 8 hours
                 </Text>
               </View>
             </View>

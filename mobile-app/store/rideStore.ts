@@ -59,6 +59,7 @@ interface RideState {
   fetchRides: () => Promise<void>;
   fetchRideById: (rideId: string) => Promise<Ride | null>;
   postRide: (data: PostRideData, posterUser: any) => Promise<Ride | null>;
+  completeRide: (rideId: string) => Promise<void>;
   cancelRide: (rideId: string) => Promise<void>;
 }
 
@@ -169,8 +170,9 @@ export const useRideStore = create<RideState>((set, get) => ({
       mode: data.mode,
     };
 
-    if (data.departureType === 'immediate' && data.expiresInMinutes) {
-      const expiresAt = new Date(Date.now() + data.expiresInMinutes * 60000).toISOString();
+    if (data.departureType === 'immediate') {
+      const minutes = data.expiresInMinutes || 480;
+      const expiresAt = new Date(Date.now() + minutes * 60000).toISOString();
       insertData.expires_at = expiresAt;
     }
 
@@ -200,6 +202,24 @@ export const useRideStore = create<RideState>((set, get) => ({
     }).catch((err) => console.warn('Failed to notify university:', err));
 
     return ride;
+  },
+
+  completeRide: async (rideId) => {
+    const { error } = await supabase.rpc('complete_ride', { p_ride_id: rideId });
+
+    if (error) {
+      console.error('Error completing ride via RPC:', error);
+      throw error;
+    }
+
+    set((state) => ({ removingIds: [...state.removingIds, rideId] }));
+
+    setTimeout(() => {
+      set((state) => ({
+        rides: state.rides.filter((r) => r.id !== rideId),
+        removingIds: state.removingIds.filter((id) => id !== rideId),
+      }));
+    }, 300);
   },
 
   cancelRide: async (rideId) => {

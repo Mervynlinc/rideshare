@@ -577,9 +577,9 @@ setMainError("");
               <div className="font-display text-lg font-bold mb-2">Ride<span className="text-accent">Share</span></div>
               <p className="text-sm text-text3 max-w-xs leading-relaxed mb-4">Campus ride-sharing for Ugandan university students. Split the ride, not the wallet.</p>
               <div className="flex gap-2.5 justify-center md:justify-start">
-                <a href="#" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-text3 hover:border-accent hover:text-accent hover:bg-aglow transition-colors"><i className="fab fa-x-twitter" /></a>
-                <a href="#" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-text3 hover:border-accent hover:text-accent hover:bg-aglow transition-colors"><i className="fab fa-instagram" /></a>
-                <a href="#" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-text3 hover:border-accent hover:text-accent hover:bg-aglow transition-colors"><i className="fab fa-tiktok" /></a>
+                <a href="https://x.com/ride___share" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-text3 hover:border-accent hover:text-accent hover:bg-aglow transition-colors"><i className="fab fa-x-twitter" /></a>
+                <a href="https://www.instagram.com/ride__share/" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-text3 hover:border-accent hover:text-accent hover:bg-aglow transition-colors"><i className="fab fa-instagram" /></a>
+                <a href="https://www.tiktok.com/@ride__share?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-text3 hover:border-accent hover:text-accent hover:bg-aglow transition-colors"><i className="fab fa-tiktok" /></a>
               </div>
             </div>
             <div className="flex gap-10 md:gap-16 text-center md:text-left">

@@ -7,9 +7,12 @@ import { useTheme } from '../hooks/useTheme';
 interface NotificationItemProps {
   notification: Notification;
   onPress: () => void;
+  onLongPress?: () => void;
+  onDelete?: () => void;
+  selected?: boolean;
 }
 
-export function NotificationItem({ notification, onPress }: NotificationItemProps) {
+export function NotificationItem({ notification, onPress, onLongPress, onDelete, selected }: NotificationItemProps) {
   const { colors } = useTheme();
 
   const getTypeStyles = () => {
@@ -30,9 +33,25 @@ export function NotificationItem({ notification, onPress }: NotificationItemProp
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="flex-row gap-3 py-3.5 border-b"
-      style={{ borderBottomColor: colors.border.DEFAULT }}
+      onLongPress={onLongPress}
+      className="flex-row gap-3 py-3.5 border-b items-center"
+      style={{
+        borderBottomColor: colors.border.DEFAULT,
+        backgroundColor: selected ? `${colors.accent.DEFAULT}10` : 'transparent',
+      }}
     >
+      {selected !== undefined && (
+        <View
+          className="w-5 h-5 rounded-md items-center justify-center mr-1"
+          style={{
+            backgroundColor: selected ? colors.accent.DEFAULT : 'transparent',
+            borderWidth: selected ? 0 : 1.5,
+            borderColor: colors.text.dim,
+          }}
+        >
+          {selected && <Ionicons name="checkmark" size={14} color="#000" />}
+        </View>
+      )}
       <View
         className="w-10 h-10 rounded-xl items-center justify-center"
         style={{ backgroundColor: typeStyles.bg }}
@@ -44,6 +63,17 @@ export function NotificationItem({ notification, onPress }: NotificationItemProp
         <Text className="text-xs leading-5" style={{ color: colors.text.sec }}>{notification.description}</Text>
         <Text className="text-xs mt-1" style={{ color: colors.text.dim }}>{getTimeAgo(notification.timestamp)}</Text>
       </View>
+      {onDelete && selected === undefined && (
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onDelete();
+          }}
+          className="p-2"
+        >
+          <Ionicons name="trash-outline" size={16} color={colors.red.DEFAULT} />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }

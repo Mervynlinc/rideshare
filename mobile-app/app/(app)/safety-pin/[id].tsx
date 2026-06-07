@@ -5,7 +5,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PinInput, BackButton, Button } from '../../../components/ui';
 import { useTheme } from '../../../hooks/useTheme';
-import { useAuth } from '../../../context';
+import { useAuth, useNotifications } from '../../../context';
+import { useRides } from '../../../hooks/useRides';
 import { supabase } from '../../../lib/supabase';
 
 export default function SafetyPinScreen() {
@@ -13,6 +14,8 @@ export default function SafetyPinScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { removeRideNotifications } = useNotifications();
+  const { completeRide } = useRides();
 
   const [myPin, setMyPin] = useState('');
   const [theirPin, setTheirPin] = useState('');
@@ -23,6 +26,7 @@ export default function SafetyPinScreen() {
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
+  const [initError, setInitError] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -31,7 +35,11 @@ export default function SafetyPinScreen() {
   }, [id]);
 
   const initScreen = async () => {
-    if (!id || !user) return;
+    if (!id || !user) {
+      setInitError('Missing user or chat information.');
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
 
@@ -41,7 +49,11 @@ export default function SafetyPinScreen() {
         .eq('id', id)
         .single();
 
-      if (!chat) return;
+      if (!chat) {
+        setInitError('Chat not found.');
+        setLoading(false);
+        return;
+      }
 
       setRideId(chat.ride_id);
 
@@ -58,7 +70,6 @@ export default function SafetyPinScreen() {
         setBuddyName(otherUser.name);
       }
 
-      // Always generate a fresh PIN like an OTP
       const newPin = generatePin();
       setMyPin(newPin);
 
@@ -73,22 +84,39 @@ export default function SafetyPinScreen() {
         if (myRecord.safety_pin_verified) {
           setVerified(true);
         }
-        await supabase
+        const { error: updateError } = await supabase
           .from('ride_participants')
           .update({ safety_pin: newPin })
           .eq('id', myRecord.id);
+        if (updateError) throw updateError;
       } else {
-        // If no record exists yet, create one with the PIN
-        await supabase.from('ride_participants').insert({
+        const { error: insertError } = await supabase.from('ride_participants').insert({
           ride_id: chat.ride_id,
           user_id: user.id,
           status: 'accepted',
           safety_pin: newPin,
           accepted_at: new Date().toISOString(),
         });
+        if (insertError) throw insertError;
       }
-    } catch (err) {
+
+      // If this user is already verified, check if both are verified and complete ride
+      if (myRecord?.safety_pin_verified) {
+        const { data: otherParticipant } = await supabase
+          .from('ride_participants')
+          .select('safety_pin_verified')
+          .eq('ride_id', chat.ride_id)
+          .eq('user_id', otherId)
+          .maybeSingle();
+
+        if (otherParticipant?.safety_pin_verified) {
+          await completeRide(chat.ride_id);
+          removeRideNotifications(chat.ride_id);
+        }
+      }
+    } catch (err: any) {
       console.error('Error initializing safety pin screen:', err);
+      setInitError(err?.message || 'Something went wrong loading the safety screen.');
     } finally {
       setLoading(false);
     }
@@ -105,12 +133,23 @@ export default function SafetyPinScreen() {
     setError('');
 
     try {
-      const { data: otherRecord } = await supabase
+      if (!otherUserId) {
+        setError('Unable to identify your ride buddy. Please go back and try again.');
+        return;
+      }
+
+      const { data: otherRecord, error: fetchError } = await supabase
         .from('ride_participants')
         .select('safety_pin')
         .eq('ride_id', rideId)
         .eq('user_id', otherUserId)
         .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching buddy PIN:', fetchError);
+        setError('Something went wrong. Please try again.');
+        return;
+      }
 
       if (!otherRecord || !otherRecord.safety_pin) {
         setError('Your buddy has not opened their Safety PIN screen yet. Ask them to open it first.');
@@ -130,16 +169,31 @@ export default function SafetyPinScreen() {
         .maybeSingle();
 
       if (myRecord) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('ride_participants')
           .update({
             safety_pin_verified: true,
             safety_pin_exchange_at: new Date().toISOString(),
           })
           .eq('id', myRecord.id);
+        if (updateError) throw updateError;
       }
 
       setVerified(true);
+
+      // Check if the other user has also verified
+      const { data: otherParticipant } = await supabase
+        .from('ride_participants')
+        .select('safety_pin_verified')
+        .eq('ride_id', rideId)
+        .eq('user_id', otherUserId)
+        .maybeSingle();
+
+      if (otherParticipant?.safety_pin_verified) {
+        // Both users verified - mark ride as completed
+        await completeRide(rideId);
+        removeRideNotifications(rideId);
+      }
     } catch (err) {
       console.error('Error verifying PIN:', err);
       setError('Something went wrong. Please try again.');
@@ -149,7 +203,7 @@ export default function SafetyPinScreen() {
   };
 
   const handleContinueToRating = () => {
-    router.push(`/complete?rideId=${rideId}&buddyName=${encodeURIComponent(buddyName)}`);
+    router.push(`/complete?rideId=${rideId}&buddyName=${encodeURIComponent(buddyName)}&buddyId=${otherUserId}`);
   };
 
   if (loading) {
@@ -157,6 +211,20 @@ export default function SafetyPinScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg.phone }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={colors.accent.DEFAULT} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (initError) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg.phone }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+          <Ionicons name="alert-circle" size={48} color={colors.red.DEFAULT} />
+          <Text style={{ color: colors.text.DEFAULT, fontSize: 16, textAlign: 'center', marginTop: 16 }}>{initError}</Text>
+          <View style={{ marginTop: 24 }}>
+            <Button title="Go Back" onPress={() => router.back()} />
+          </View>
         </View>
       </SafeAreaView>
     );

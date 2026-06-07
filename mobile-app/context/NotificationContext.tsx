@@ -34,6 +34,8 @@ interface NotificationContextType {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   addNotification: (notification: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
+  deleteNotifications: (ids: string[]) => void;
+  removeRideNotifications: (rideId: string) => void;
   clearNotifications: () => void;
 }
 
@@ -123,11 +125,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
           shouldShowBanner: true,
           shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
         }),
       });
 
@@ -189,6 +190,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     saveNotifications(updated);
   };
 
+  const deleteNotifications = (ids: string[]) => {
+    const idSet = new Set(ids);
+    const updated = notifications.filter((n) => !idSet.has(n.id));
+    setNotifications(updated);
+    saveNotifications(updated);
+  };
+
+  const removeRideNotifications = (rideId: string) => {
+    const updated = notifications.filter(
+      (n) => n.data?.rideId !== rideId
+    );
+    setNotifications(updated);
+    saveNotifications(updated);
+  };
+
   const clearNotifications = () => {
     setNotifications([]);
     AsyncStorage.removeItem(NOTIFICATIONS_KEY);
@@ -206,6 +222,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         markAsRead,
         markAllAsRead,
         addNotification,
+        deleteNotifications,
+        removeRideNotifications,
         clearNotifications,
       }}
     >
