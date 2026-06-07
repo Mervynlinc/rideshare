@@ -9,6 +9,7 @@ import { useState } from 'react';
 interface RideCardProps {
   ride: Ride;
   onPress: () => void;
+  onCancel?: () => void;
   removing?: boolean;
 }
 
@@ -47,7 +48,7 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
   );
 }
 
-export function RideCard({ ride, onPress, removing }: RideCardProps) {
+export function RideCard({ ride, onPress, onCancel, removing }: RideCardProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -136,7 +137,23 @@ export function RideCard({ ride, onPress, removing }: RideCardProps) {
             <Text className="text-sm font-medium text-text">{ride.poster.name}</Text>
             <TrustBadge score={ride.poster.trust} />
           </View>
-          <Text className="text-xs text-text-muted">{getTimeAgo(ride.postedAt)}</Text>
+          <View className="flex-row items-center gap-2">
+            {onCancel && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onCancel();
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-bg-input"
+              >
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="close-circle-outline" size={12} className="text-red" />
+                  <Text className="text-xs font-semibold text-red">Cancel</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            <Text className="text-xs text-text-muted">{getTimeAgo(ride.postedAt)}</Text>
+          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>

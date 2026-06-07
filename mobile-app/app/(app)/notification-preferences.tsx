@@ -27,7 +27,7 @@ export default function NotificationPreferencesScreen() {
   };
 
   const handleIndividualToggle = async (key: keyof typeof preferences) => {
-    if (preferences.push_enabled) return;
+    if (!preferences.push_enabled) return;
     
     await updatePreference(key, !preferences[key]);
   };

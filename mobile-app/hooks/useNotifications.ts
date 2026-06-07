@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthProvider';
 
@@ -14,7 +15,8 @@ try {
   
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -27,6 +29,7 @@ export function useNotifications() {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!user || !notificationsAvailable) return;
@@ -37,7 +40,13 @@ export function useNotifications() {
       const subscription = Notifications.addNotificationResponseReceivedListener(
         (response: any) => {
           const data = response.notification.request.content.data;
-          console.log('Notification tapped:', data);
+          if (data?.chatId) {
+            router.push(`/chat/${data.chatId}`);
+          } else if (data?.rideId) {
+            router.push(`/ride/${data.rideId}`);
+          } else if (data?.screen === 'profile') {
+            router.push('/(app)/(tabs)/profile');
+          }
         }
       );
 

@@ -155,9 +155,8 @@ export function useMessages({ chatId }: UseMessagesParams) {
     channelRef.current = channel;
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
+      supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [chatId, user?.id]);
 

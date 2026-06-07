@@ -157,6 +157,42 @@ export default function RideDetailScreen() {
     );
   }
 
+  if (ride.status === 'completed') {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-phone">
+        <View className="flex-1 items-center justify-center px-5">
+          <View className="w-20 h-20 rounded-full items-center justify-center mb-5 bg-accent-glow border-2 border-accent/20">
+            <Ionicons name="checkmark-circle" size={40} className="text-accent" />
+          </View>
+          <Text className="font-display text-2xl font-bold text-center mb-2 text-text">
+            Ride Completed
+          </Text>
+          <Text className="text-text-muted text-sm text-center mb-6">
+            {ride.from} → {ride.to}
+          </Text>
+          <Button title="Go Back" onPress={() => router.back()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (ride.status === 'cancelled') {
+    return (
+      <SafeAreaView className="flex-1 bg-bg-phone">
+        <View className="flex-1 items-center justify-center px-5">
+          <Ionicons name="close-circle" size={48} className="text-red mb-3" />
+          <Text className="font-display text-2xl font-bold text-center mb-2 text-text">
+            Ride Cancelled
+          </Text>
+          <Text className="text-text-muted text-sm text-center mb-6">
+            {ride.from} → {ride.to}
+          </Text>
+          <Button title="Go Back" onPress={() => router.back()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
       <ScrollView className="flex-1 bg-bg-phone px-5 pb-24">

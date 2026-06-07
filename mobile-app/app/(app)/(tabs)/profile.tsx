@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ const settings = [
   { icon: 'create', label: 'Edit Profile', action: 'edit-profile', color: '#00E676' },
   { icon: 'key', label: 'Change Password', action: 'reset-password', color: '#FFB300' },
   { icon: 'notifications', label: 'Notification Preferences', action: 'notification-preferences', color: '#00E676' },
+  { icon: 'alert-circle', label: 'Ride Alerts', action: 'ride-alerts', color: '#00E676' },
   { icon: 'ban', label: 'Blocked Users', action: 'blocked-users', color: '#00E676' },
   { icon: 'lock-closed', label: 'Privacy & Safety', action: 'privacy-safety', color: '#00E676' },
   { icon: 'time', label: 'Ride History', action: 'history', color: '#00E676' },
@@ -93,6 +94,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-phone">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView className="flex-1 px-5 pb-24 bg-bg-phone">
         <View className="items-center py-5">
           <TouchableOpacity onPress={pickAvatar} disabled={uploadingAvatar}>
@@ -233,6 +238,7 @@ export default function ProfileScreen() {
           ))}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

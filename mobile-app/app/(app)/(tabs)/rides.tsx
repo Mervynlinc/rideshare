@@ -14,7 +14,7 @@ import { useTheme } from '../../../hooks/useTheme';
 export default function MyRidesScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { rides, loading, fetchRides, removingIds } = useRides();
+  const { rides, loading, fetchRides, removingIds, cancelRide } = useRides();
   const { getRequestsForMyRide, respondToRequest, refresh } = useJoinRequests();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
@@ -53,7 +53,8 @@ export default function MyRidesScreen() {
       const { data: userRides } = await supabase
         .from('rides')
         .select('id, from_location, to_location')
-        .eq('poster_id', user.id);
+        .eq('poster_id', user.id)
+        .neq('status', 'completed');
 
       if (!userRides || userRides.length === 0) {
         setIncomingRequests([]);
@@ -179,6 +180,12 @@ export default function MyRidesScreen() {
                   ride={ride}
                   removing={removingIds.includes(ride.id)}
                   onPress={() => handleRidePress(ride.id)}
+                  onCancel={() => {
+                    Alert.alert('Cancel Ride', 'This will cancel your ride and notify any riders. Are you sure?', [
+                      { text: 'Keep Ride', style: 'cancel' },
+                      { text: 'Cancel Ride', style: 'destructive', onPress: () => cancelRide(ride.id) },
+                    ]);
+                  }}
                 />
               ))
             ) : (
@@ -186,7 +193,7 @@ export default function MyRidesScreen() {
                 <Ionicons name="bicycle" size={48} className="text-icon-muted mb-3" />
                 <Text className="text-sm text-text-muted text-center">No rides posted yet</Text>
                 <TouchableOpacity className="mt-3" onPress={() => router.push('/(app)/(tabs)/post')}>
-                  <Text className="text-sm text-accent font-semibold">Post your first ride</Text>
+                  <Text className="text-sm text-accent font-semibold">Post a ride</Text>
                 </TouchableOpacity>
               </View>
             )}

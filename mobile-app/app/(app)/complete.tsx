@@ -4,13 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../components/ui';
-import { useAuth } from '../../context';
+import { useAuth, useNotifications } from '../../context';
+import { useRides } from '../../hooks/useRides';
 import { supabase } from '../../lib/supabase';
 
 export default function RideCompleteScreen() {
   const router = useRouter();
-  const { rideId, buddyName } = useLocalSearchParams<{ rideId: string; buddyName: string }>();
+  const { rideId, buddyName, buddyId } = useLocalSearchParams<{ rideId: string; buddyName: string; buddyId: string }>();
   const { user } = useAuth();
+  const { removeRideNotifications } = useNotifications();
+  const { completeRide } = useRides();
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -48,12 +51,34 @@ export default function RideCompleteScreen() {
 
     try {
       if (rideId && user) {
+        const ratedUserId = buddyId || user.id;
         await supabase.from('ratings').insert({
           ride_id: rideId,
           rater_id: user.id,
+          rated_user_id: ratedUserId,
           rating,
           comment: comment || null,
         });
+
+        // Send push notification to the rated user
+        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+        fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: ratedUserId,
+            title: 'New Rating Received',
+            body: `${user.name} rated you ${rating}/5 stars`,
+            category: 'ratings',
+            data: { rideId, type: 'rating' },
+          }),
+        }).catch((err) => console.warn('Failed to send rating push notification:', err));
+
+        // Fallback: attempt to complete the ride if both users have verified
+        await completeRide(rideId).catch((err) => {
+          console.warn('Ride may already be completed, or not all participants verified:', err);
+        });
+        removeRideNotifications(rideId);
       }
 
       setSubmitted(true);
