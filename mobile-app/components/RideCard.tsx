@@ -111,7 +111,7 @@ export function RideCard({ ride, onPress, removing }: RideCardProps) {
 
         <View className="flex-row items-center gap-3.5 mb-3">
           {getDepartureLabel()}
-          {ride.departureType === 'immediate' && ride.expiresAt && mounted && (
+          {ride.departureType === 'immediate' && ride.expiresAt && mounted && ride.seatsTaken === 0 && (
             <Countdown expiresAt={ride.expiresAt} />
           )}
           {ride.departureType === 'scheduled' && ride.scheduledDate && ride.scheduledTime && (

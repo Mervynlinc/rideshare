@@ -157,41 +157,17 @@ export function OnboardingModal({ onComplete, onLogin }: OnboardingModalProps) {
 
         {/* Pagination Dots */}
         <View style={styles.paginationContainer}>
-          {onboardingData.map((_, index) => {
-            const dotScale = scrollX.interpolate({
-              inputRange: [
-                (index - 1) * SCREEN_WIDTH,
-                index * SCREEN_WIDTH,
-                (index + 1) * SCREEN_WIDTH,
-              ],
-              outputRange: [1, 3, 1],
-              extrapolate: 'clamp',
-            });
-
-            const dotOpacity = scrollX.interpolate({
-              inputRange: [
-                (index - 1) * SCREEN_WIDTH,
-                index * SCREEN_WIDTH,
-                (index + 1) * SCREEN_WIDTH,
-              ],
-              outputRange: [0.3, 1, 0.3],
-              extrapolate: 'clamp',
-            });
-
-            return (
-              <Animated.View
-                key={index}
-                style={[
-                  styles.dot,
-                  {
-                    transform: [{ scaleX: dotScale }],
-                    opacity: dotOpacity,
-                    backgroundColor: index === currentIndex ? colors.accent.DEFAULT : colors.border.light,
-                  },
-                ]}
-              />
-            );
-          })}
+          {onboardingData.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: index === currentIndex ? colors.accent.DEFAULT : colors.border.light,
+                },
+              ]}
+            />
+          ))}
         </View>
 
         {/* Action Buttons */}

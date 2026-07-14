@@ -8,6 +8,8 @@ import { useTheme } from '../../../hooks/useTheme';
 import { useMessages } from '../../../hooks/useMessages';
 import { useAuth } from '../../../context/AuthProvider';
 import { supabase } from '../../../lib/supabase';
+import { getParticipantColor, getInitials } from '../../../utils/chatColors';
+import type { ChatParticipant } from '../../../hooks/useChats';
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const [inputText, setInputText] = useState('');
   const [chatInfo, setChatInfo] = useState<any>(null);
+  const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const [loadingChatInfo, setLoadingChatInfo] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -32,7 +35,7 @@ export default function ChatScreen() {
   const fetchChatInfo = async () => {
     try {
       setLoadingChatInfo(true);
-      
+
       // Get chat details
       const { data: chat, error: chatError } = await supabase
         .from('chats')
@@ -47,35 +50,39 @@ export default function ChatScreen() {
         return;
       }
 
-      // Get the other user's info
-      const otherUserId = chat.requester_id === user?.id ? chat.poster_id : chat.requester_id;
-      let otherUser = null;
-      
-      const { data: userData } = await supabase
+      // Get participants for this ride
+      const { data: participantRows } = await supabase
+        .from('ride_participants')
+        .select('user_id, status')
+        .eq('ride_id', chat.ride_id)
+        .in('status', ['accepted', 'pending']);
+
+      const participantUserIds = participantRows?.map((p) => p.user_id) || [];
+      const allUserIds = [...new Set([chat.poster_id, ...participantUserIds])];
+
+      // Fetch user details for all participants
+      const { data: usersData } = await supabase
         .from('users')
         .select('id, name, avatar_url, trust_score, verified, gender')
-        .eq('id', otherUserId)
-        .maybeSingle();
+        .in('id', allUserIds);
 
-      if (userData) {
-        otherUser = userData;
-      } else {
-        // Fallback to auth.users
-        const { data: authUser } = await supabase.auth.admin.listUsers();
-        const foundAuthUser = authUser?.users.find((u: any) => u.id === otherUserId);
-        if (foundAuthUser) {
-          otherUser = {
-            id: foundAuthUser.id,
-            name: foundAuthUser.user_metadata?.name || 'User',
-            gender: foundAuthUser.user_metadata?.gender,
-            verified: !!foundAuthUser.email_confirmed_at
-          };
-        }
-      }
+      const participantList: ChatParticipant[] = allUserIds.map((uid) => {
+        const userData = usersData?.find((u) => u.id === uid);
+        return {
+          id: uid,
+          name: userData?.name || 'Unknown',
+          avatar_url: userData?.avatar_url,
+          trust_score: userData?.trust_score || 0,
+          verified: userData?.verified || false,
+          gender: userData?.gender || 'Other',
+          is_poster: uid === chat.poster_id,
+        };
+      });
 
+      setParticipants(participantList);
       setChatInfo({
         ...chat,
-        other_user: otherUser,
+        participants: participantList,
       });
     } catch (err) {
       console.error('Error fetching chat info:', err);
@@ -106,25 +113,20 @@ export default function ChatScreen() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const getSenderColor = (senderId: string): string => {
+    return getParticipantColor(
+      senderId,
+      chatInfo?.poster_id || '',
+      participants.map((p) => p.id)
+    );
   };
 
-  const getAvatarColor = (gender: string) => {
-    switch (gender?.toLowerCase()) {
-      case 'male':
-        return '#3B82F6';
-      case 'female':
-        return '#EC4899';
-      default:
-        return '#6B7280';
-    }
+  const getSenderName = (senderId: string): string => {
+    const participant = participants.find((p) => p.id === senderId);
+    return participant?.name || 'Unknown';
   };
+
+  const isGroupChat = participants.length > 2;
 
   if (!id) {
     return (
@@ -148,31 +150,56 @@ export default function ChatScreen() {
           <BackButton onPress={() => router.back()} />
           {loadingChatInfo ? (
             <ActivityIndicator size="small" color={colors.text.muted} />
-          ) : chatInfo?.other_user ? (
-            <>
-              <Avatar
-                initials={getInitials(chatInfo.other_user.name)}
-                size="sm"
-                color={getAvatarColor(chatInfo.other_user.gender)}
-                imageUrl={chatInfo.other_user.avatar_url}
-              />
+          ) : (
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {/* Participant avatars */}
+              {isGroupChat ? (
+                <View style={{ flexDirection: 'row', marginRight: -4 }}>
+                  {participants.slice(0, 3).map((p, idx) => (
+                    <View key={p.id} style={{ marginLeft: idx > 0 ? -8 : 0, zIndex: 3 - idx }}>
+                      <Avatar
+                        initials={getInitials(p.name)}
+                        size="sm"
+                        color={getParticipantColor(p.id, chatInfo?.poster_id || '', participants.map((pp) => pp.id))}
+                        imageUrl={p.avatar_url}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                participants.length > 0 && (
+                  <Avatar
+                    initials={getInitials(participants.find((p) => p.id !== user?.id)?.name || participants[0]?.name || '')}
+                    size="sm"
+                    color={getParticipantColor(
+                      participants.find((p) => p.id !== user?.id)?.id || participants[0]?.id || '',
+                      chatInfo?.poster_id || '',
+                      participants.map((p) => p.id)
+                    )}
+                    imageUrl={participants.find((p) => p.id !== user?.id)?.avatar_url || participants[0]?.avatar_url}
+                  />
+                )
+              )}
+
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text.DEFAULT, fontSize: 14, fontWeight: '600' }}>
-                  {chatInfo.other_user.name}
+                <Text style={{ color: colors.text.DEFAULT, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>
+                  {isGroupChat
+                    ? participants.map((p) => p.name).join(', ')
+                    : participants.find((p) => p.id !== user?.id)?.name || 'Chat'}
                 </Text>
                 <Text style={{ color: colors.text.muted, fontSize: 12 }}>
-                  Tap shield to verify when you meet
+                  {isGroupChat ? `${participants.length} riders` : 'Tap shield to verify when you meet'}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.DEFAULT, alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => router.push(`/safety-pin/${id}`)}
-              >
-                <Ionicons name="shield-checkmark" size={14} color={colors.amber.DEFAULT} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <Text style={{ color: colors.text.muted }}>Loading...</Text>
+            </View>
+          )}
+          {!loadingChatInfo && (
+            <TouchableOpacity
+              style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.DEFAULT, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => router.push(`/safety-pin/${id}`)}
+            >
+              <Ionicons name="shield-checkmark" size={14} color={colors.amber.DEFAULT} />
+            </TouchableOpacity>
           )}
         </View>
 
@@ -191,7 +218,7 @@ export default function ChatScreen() {
           </View>
         ) : error ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.text.error }}>{error}</Text>
+            <Text style={{ color: colors.red.DEFAULT }}>{error}</Text>
           </View>
         ) : messages.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -206,33 +233,55 @@ export default function ChatScreen() {
             style={{ flex: 1, paddingHorizontal: 20, paddingVertical: 16 }}
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
           >
-            {messages.map((message) => (
-              <View
-                key={message.id}
-                style={{ marginBottom: 8, alignItems: message.is_mine ? 'flex-end' : 'flex-start' }}
-              >
+            {messages.map((message) => {
+              const senderColor = getSenderColor(message.sender_id);
+              const senderName = message.sender_name || getSenderName(message.sender_id);
+
+              return (
                 <View
-                  style={{
-                    maxWidth: '78%',
-                    paddingHorizontal: 14,
-                    paddingVertical: 10,
-                    borderRadius: 16,
-                    backgroundColor: message.is_mine ? colors.accent.DEFAULT : colors.bg['card-alt'],
-                    borderBottomRightRadius: message.is_mine ? 4 : 16,
-                    borderBottomLeftRadius: message.is_mine ? 16 : 4,
-                  }}
+                  key={message.id}
+                  style={{ marginBottom: 12, alignItems: message.is_mine ? 'flex-end' : 'flex-start' }}
                 >
-                  <Text
-                    style={{ fontSize: 14, lineHeight: 20, color: message.is_mine ? '#000' : colors.text.DEFAULT }}
+                  {/* Sender name (only show for messages from others in group chats) */}
+                  {isGroupChat && !message.is_mine && (
+                    <Text style={{ color: senderColor, fontSize: 11, fontWeight: '600', marginBottom: 2, marginLeft: 4 }}>
+                      {senderName}
+                    </Text>
+                  )}
+
+                  {/* Message bubble */}
+                  <View
+                    style={{
+                      maxWidth: '78%',
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 16,
+                      backgroundColor: message.is_mine ? colors.accent.DEFAULT : senderColor,
+                      borderBottomRightRadius: message.is_mine ? 4 : 16,
+                      borderBottomLeftRadius: message.is_mine ? 16 : 4,
+                    }}
                   >
-                    {message.text}
-                  </Text>
+                    <Text
+                      style={{ fontSize: 14, lineHeight: 20, color: '#000' }}
+                    >
+                      {message.text}
+                    </Text>
+                  </View>
+
+                  {/* Timestamp (and sender name for non-group chats) */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, marginHorizontal: 4 }}>
+                    {!isGroupChat && !message.is_mine && (
+                      <Text style={{ color: senderColor, fontSize: 11, fontWeight: '600' }}>
+                        {senderName}
+                      </Text>
+                    )}
+                    <Text style={{ color: colors.text.dim, fontSize: 11 }}>
+                      {formatTime(message.timestamp)}
+                    </Text>
+                  </View>
                 </View>
-                <Text style={{ color: colors.text.dim, fontSize: 12, marginTop: 2, marginRight: 4 }}>
-                  {formatTime(message.timestamp)}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
         )}
 

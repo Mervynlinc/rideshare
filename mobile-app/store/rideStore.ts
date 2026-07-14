@@ -60,6 +60,8 @@ interface RideState {
   fetchRideById: (rideId: string) => Promise<Ride | null>;
   postRide: (data: PostRideData, posterUser: any) => Promise<Ride | null>;
   cancelRide: (rideId: string) => Promise<void>;
+  removeRide: (rideId: string) => void;
+  addRide: (ride: Ride) => void;
 }
 
 export const useRideStore = create<RideState>((set, get) => ({
@@ -97,7 +99,7 @@ export const useRideStore = create<RideState>((set, get) => ({
       if (ridesError) throw ridesError;
 
       const now = new Date().toISOString();
-      const validRides = (ridesData || []).filter((r: any) => !r.expires_at || r.expires_at > now);
+      const validRides = (ridesData || []).filter((r: any) => !r.expires_at || r.expires_at > now || r.seats_taken > 0);
 
       const mapped = validRides.map((r: any) => toRide(r, r.poster));
 
@@ -129,7 +131,7 @@ export const useRideStore = create<RideState>((set, get) => ({
       if (rideError) throw rideError;
 
       const now = new Date().toISOString();
-      if (rideData.expires_at && rideData.expires_at <= now && rideData.status === 'active') {
+      if (rideData.expires_at && rideData.expires_at <= now && rideData.status === 'active' && rideData.seats_taken === 0) {
         await supabase
           .from('rides')
           .update({ status: 'cancelled', cancelled_at: now })
@@ -237,5 +239,18 @@ export const useRideStore = create<RideState>((set, get) => ({
         removingIds: state.removingIds.filter((id) => id !== rideId),
       }));
     }, 300);
+  },
+
+  removeRide: (rideId) => {
+    set((state) => ({
+      rides: state.rides.filter((r) => r.id !== rideId),
+    }));
+  },
+
+  addRide: (ride) => {
+    set((state) => {
+      if (state.rides.some((r) => r.id === ride.id)) return state;
+      return { rides: [ride, ...state.rides] };
+    });
   },
 }));

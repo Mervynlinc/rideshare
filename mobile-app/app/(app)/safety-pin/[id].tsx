@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { PinInput, BackButton, Button } from '../../../components/ui';
+import { PinInput, BackButton, Button, Avatar } from '../../../components/ui';
 import { useTheme } from '../../../hooks/useTheme';
 import { useAuth } from '../../../context';
 import { supabase } from '../../../lib/supabase';
+import { getParticipantColor, getInitials } from '../../../utils/chatColors';
+import type { ChatParticipant } from '../../../hooks/useChats';
 
 export default function SafetyPinScreen() {
   const router = useRouter();
@@ -14,15 +16,25 @@ export default function SafetyPinScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
 
+  const [chat, setChat] = useState<any>(null);
+  const [participants, setParticipants] = useState<ChatParticipant[]>([]);
+  const [isPoster, setIsPoster] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Picker state (for poster with 3+ riders)
+  const [showPicker, setShowPicker] = useState(false);
+  const [, setSelectedParticipant] = useState<ChatParticipant | null>(null);
+
+  // Verification state
   const [myPin, setMyPin] = useState('');
   const [theirPin, setTheirPin] = useState('');
-  const [rideId, setRideId] = useState('');
   const [buddyName, setBuddyName] = useState('');
   const [otherUserId, setOtherUserId] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [rideId, setRideId] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
+  const [verifiedUsers, setVerifiedUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (id) {
@@ -35,57 +47,83 @@ export default function SafetyPinScreen() {
     try {
       setLoading(true);
 
-      const { data: chat } = await supabase
+      // Get chat details
+      const { data: chatData } = await supabase
         .from('chats')
-        .select('ride_id, requester_id, poster_id, ride_from, ride_to')
+        .select('ride_id, poster_id, ride_from, ride_to')
         .eq('id', id)
         .single();
 
-      if (!chat) return;
+      if (!chatData) return;
 
-      setRideId(chat.ride_id);
+      setChat(chatData);
+      setRideId(chatData.ride_id);
 
-      const otherId = chat.requester_id === user.id ? chat.poster_id : chat.requester_id;
-      setOtherUserId(otherId);
+      // Determine if current user is the poster
+      const userIsPoster = chatData.poster_id === user.id;
+      setIsPoster(userIsPoster);
 
-      const { data: otherUser } = await supabase
-        .from('users')
-        .select('name')
-        .eq('id', otherId)
-        .single();
-
-      if (otherUser) {
-        setBuddyName(otherUser.name);
-      }
-
-      // Always generate a fresh PIN like an OTP
-      const newPin = generatePin();
-      setMyPin(newPin);
-
-      const { data: myRecord } = await supabase
+      // Get all participants for this ride
+      const { data: participantRows } = await supabase
         .from('ride_participants')
-        .select('id, safety_pin_verified')
-        .eq('ride_id', chat.ride_id)
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .select('user_id, status')
+        .eq('ride_id', chatData.ride_id)
+        .in('status', ['accepted', 'pending']);
 
-      if (myRecord) {
-        if (myRecord.safety_pin_verified) {
-          setVerified(true);
+      const participantUserIds = participantRows?.map((p) => p.user_id) || [];
+      const allUserIds = [...new Set([chatData.poster_id, ...participantUserIds])];
+
+      // Fetch user details
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, name, avatar_url, trust_score, verified, gender')
+        .in('id', allUserIds);
+
+      const participantList: ChatParticipant[] = allUserIds.map((uid) => {
+        const userData = usersData?.find((u) => u.id === uid);
+        return {
+          id: uid,
+          name: userData?.name || 'Unknown',
+          avatar_url: userData?.avatar_url,
+          trust_score: userData?.trust_score || 0,
+          verified: userData?.verified || false,
+          gender: userData?.gender || 'Other',
+          is_poster: uid === chatData.poster_id,
+        };
+      });
+
+      setParticipants(participantList);
+
+      // Check existing verifications
+      const { data: verifications } = await supabase
+        .from('ride_verifications')
+        .select('verifier_id, verified_user_id')
+        .eq('ride_id', chatData.ride_id);
+
+      const verifiedSet = new Set<string>();
+      verifications?.forEach((v) => {
+        if (v.verifier_id === user.id) {
+          verifiedSet.add(v.verified_user_id);
         }
-        await supabase
-          .from('ride_participants')
-          .update({ safety_pin: newPin })
-          .eq('id', myRecord.id);
+      });
+      setVerifiedUsers(verifiedSet);
+
+      // Determine flow based on group size
+      const ridersOtherThanPoster = participantList.filter((p) => !p.is_poster);
+      const hasGroupChat = ridersOtherThanPoster.length >= 2;
+
+      if (userIsPoster && hasGroupChat) {
+        // Poster with 3+ riders: show picker
+        setShowPicker(true);
+      } else if (userIsPoster && ridersOtherThanPoster.length === 1) {
+        // Poster with 1 rider: direct flow (no picker)
+        setupDirectVerification(ridersOtherThanPoster[0], chatData.ride_id);
       } else {
-        // If no record exists yet, create one with the PIN
-        await supabase.from('ride_participants').insert({
-          ride_id: chat.ride_id,
-          user_id: user.id,
-          status: 'accepted',
-          safety_pin: newPin,
-          accepted_at: new Date().toISOString(),
-        });
+        // Rider: verify with poster
+        const poster = participantList.find((p) => p.is_poster);
+        if (poster) {
+          setupDirectVerification(poster, chatData.ride_id);
+        }
       }
     } catch (err) {
       console.error('Error initializing safety pin screen:', err);
@@ -94,12 +132,72 @@ export default function SafetyPinScreen() {
     }
   };
 
+  const setupDirectVerification = async (otherParticipant: ChatParticipant, rId: string) => {
+    setSelectedParticipant(otherParticipant);
+    setOtherUserId(otherParticipant.id);
+    setBuddyName(otherParticipant.name);
+
+    // Generate and store a fresh PIN
+    const newPin = generatePin();
+    setMyPin(newPin);
+
+    // Get or create my ride_participants record with the PIN
+    const { data: myRecord } = await supabase
+      .from('ride_participants')
+      .select('id, safety_pin_verified')
+      .eq('ride_id', rId)
+      .eq('user_id', user!.id)
+      .maybeSingle();
+
+    if (myRecord) {
+      if (myRecord.safety_pin_verified) {
+        setVerified(true);
+      }
+      await supabase
+        .from('ride_participants')
+        .update({ safety_pin: newPin })
+        .eq('id', myRecord.id);
+    } else {
+      await supabase.from('ride_participants').insert({
+        ride_id: rId,
+        user_id: user!.id,
+        status: 'accepted',
+        safety_pin: newPin,
+        accepted_at: new Date().toISOString(),
+      });
+    }
+  };
+
+  const handleSelectParticipant = async (participant: ChatParticipant) => {
+    setSelectedParticipant(participant);
+    setShowPicker(false);
+    setVerified(false);
+    setTheirPin('');
+    setError('');
+
+    // Check if already verified
+    if (verifiedUsers.has(participant.id)) {
+      setVerified(true);
+    }
+
+    await setupDirectVerification(participant, rideId);
+  };
+
+  const handleBackToPicker = () => {
+    setShowPicker(true);
+    setSelectedParticipant(null);
+    setVerified(false);
+    setTheirPin('');
+    setError('');
+    setMyPin('');
+  };
+
   const generatePin = () => {
     return Math.floor(1000 + Math.random() * 9000).toString();
   };
 
   const handleVerify = async () => {
-    if (theirPin.length < 4 || verifying || !rideId || !user) return;
+    if (theirPin.length < 4 || verifying || !rideId || !user || !otherUserId) return;
 
     setVerifying(true);
     setError('');
@@ -122,6 +220,14 @@ export default function SafetyPinScreen() {
         return;
       }
 
+      // Record verification in ride_verifications
+      await supabase.from('ride_verifications').upsert({
+        ride_id: rideId,
+        verifier_id: user.id,
+        verified_user_id: otherUserId,
+      }, { onConflict: 'ride_id,verifier_id,verified_user_id' });
+
+      // Also mark safety_pin_verified on ride_participants
       const { data: myRecord } = await supabase
         .from('ride_participants')
         .select('id')
@@ -140,6 +246,7 @@ export default function SafetyPinScreen() {
       }
 
       setVerified(true);
+      setVerifiedUsers((prev) => new Set([...prev, otherUserId]));
     } catch (err) {
       console.error('Error verifying PIN:', err);
       setError('Something went wrong. Please try again.');
@@ -149,8 +256,15 @@ export default function SafetyPinScreen() {
   };
 
   const handleContinueToRating = () => {
-    router.push(`/complete?rideId=${rideId}&buddyName=${encodeURIComponent(buddyName)}`);
+    if (isPoster && showPicker) {
+      // Go back to picker to verify more people
+      handleBackToPicker();
+    } else {
+      router.push(`/complete?rideId=${rideId}&buddyName=${encodeURIComponent(buddyName)}`);
+    }
   };
+
+  const hasMoreToVerify = isPoster && participants.filter((p) => !p.is_poster && !verifiedUsers.has(p.id)).length > 0;
 
   if (loading) {
     return (
@@ -162,11 +276,111 @@ export default function SafetyPinScreen() {
     );
   }
 
+  // Participant Picker (poster with 3+ riders)
+  if (showPicker) {
+    const riders = participants.filter((p) => !p.is_poster);
+
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg.phone }}>
+        <ScrollView style={{ flex: 1, backgroundColor: colors.bg.phone, paddingHorizontal: 20 }} contentContainerStyle={{ paddingTop: 24 }}>
+          <View style={{ position: 'absolute', top: 24, left: 20, zIndex: 10 }}>
+            <BackButton onPress={() => router.back()} />
+          </View>
+
+          <View style={{ alignItems: 'center', marginBottom: 28, paddingTop: 12 }}>
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 20,
+                backgroundColor: colors.accent.glow,
+                borderWidth: 2,
+                borderColor: 'rgba(0,230,118,0.2)',
+              }}
+            >
+              <Ionicons name="shield-checkmark" size={30} color={colors.accent.DEFAULT} />
+            </View>
+
+            <Text style={{ fontFamily: 'Space Grotesk', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 6, color: colors.text.DEFAULT }}>
+              Verify Your Riders
+            </Text>
+            <Text style={{ color: colors.text.sec, textAlign: 'center', fontSize: 14, lineHeight: 24, maxWidth: 280 }}>
+              Tap each rider to verify their identity in person.
+            </Text>
+          </View>
+
+          <View style={{ gap: 12 }}>
+            {riders.map((rider) => {
+              const isVerified = verifiedUsers.has(rider.id);
+              const riderColor = getParticipantColor(rider.id, chat?.poster_id || '', participants.map((p) => p.id));
+
+              return (
+                <TouchableOpacity
+                  key={rider.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: 16,
+                    borderRadius: 16,
+                    backgroundColor: colors.bg.card,
+                    borderWidth: 1,
+                    borderColor: isVerified ? colors.accent.DEFAULT : colors.border.DEFAULT,
+                  }}
+                  onPress={() => handleSelectParticipant(rider)}
+                >
+                  <Avatar
+                    initials={getInitials(rider.name)}
+                    size="md"
+                    color={riderColor}
+                    imageUrl={rider.avatar_url}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text.DEFAULT, fontSize: 15, fontWeight: '600' }}>
+                      {rider.name}
+                    </Text>
+                    <Text style={{ color: colors.text.muted, fontSize: 12 }}>
+                      {isVerified ? 'Verified' : 'Tap to verify'}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={isVerified ? 'checkmark-circle' : 'chevron-forward'}
+                    size={20}
+                    color={isVerified ? colors.accent.DEFAULT : colors.text.muted}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Check if all verified */}
+          {!riders.some((r) => !verifiedUsers.has(r.id)) && (
+            <View style={{ marginTop: 24, marginBottom: 32 }}>
+              <Button
+                title="All Riders Verified"
+                onPress={() => router.back()}
+                icon={<Ionicons name="checkmark-circle" size={16} color="#000" />}
+              />
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Direct Verification Flow (2 riders, or rider verifying poster, or poster verifying specific rider)
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg.phone }}>
       <ScrollView style={{ flex: 1, backgroundColor: colors.bg.phone, paddingHorizontal: 20 }} contentContainerStyle={{ alignItems: 'center', paddingTop: 24 }}>
         <View style={{ position: 'absolute', top: 24, left: 20 }}>
-          <BackButton onPress={() => router.back()} />
+          {isPoster && hasMoreToVerify ? (
+            <BackButton onPress={handleBackToPicker} />
+          ) : (
+            <BackButton onPress={() => router.back()} />
+          )}
         </View>
 
         <View
@@ -183,9 +397,9 @@ export default function SafetyPinScreen() {
           }}
         >
           <Ionicons
-            name={verified ? 'shield-checkmark' : 'shield-checkmark'}
+            name="shield-checkmark"
             size={30}
-            color={verified ? colors.accent.DEFAULT : colors.accent.DEFAULT}
+            color={colors.accent.DEFAULT}
           />
         </View>
 
@@ -195,7 +409,7 @@ export default function SafetyPinScreen() {
         <Text style={{ color: colors.text.sec, textAlign: 'center', fontSize: 14, marginBottom: 28, lineHeight: 24, maxWidth: 280 }}>
           {verified
             ? `You've verified ${buddyName}'s identity. Share your PIN so they can verify you too.`
-            : "Share this PIN with your buddy in person. Enter theirs to confirm it's them."}
+            : `Share this PIN with ${buddyName}. Enter theirs to confirm it's them.`}
         </Text>
 
         <View style={{ width: '100%', marginBottom: 24, alignItems: 'center' }}>
@@ -228,7 +442,7 @@ export default function SafetyPinScreen() {
           >
             <Ionicons name="checkmark-circle" size={16} color={colors.accent.DEFAULT} style={{ marginTop: 2 }} />
             <Text style={{ color: colors.text.sec, fontSize: 12, lineHeight: 20, flex: 1 }}>
-              Verify that this is your <Text style={{ color: colors.text.DEFAULT, fontWeight: '600' }}>rideshare buddy</Text>. You've confirmed their PIN matches.
+              Verify that this is your <Text style={{ color: colors.text.DEFAULT, fontWeight: '600' }}>rideshare buddy</Text>. You{"'"}ve confirmed their PIN matches.
             </Text>
           </View>
         ) : (
@@ -248,7 +462,7 @@ export default function SafetyPinScreen() {
             <Ionicons
               name={error ? 'close-circle' : 'warning'}
               size={16}
-              color={error ? colors.red.DEFAULT : colors.red.DEFAULT}
+              color={colors.red.DEFAULT}
               style={{ marginTop: 2 }}
             />
             <Text style={{ color: colors.text.sec, fontSize: 12, lineHeight: 20, flex: 1 }}>
@@ -262,11 +476,19 @@ export default function SafetyPinScreen() {
         )}
 
         {verified ? (
-          <Button
-            title="Continue to Rating"
-            onPress={handleContinueToRating}
-            icon={<Ionicons name="star" size={16} color="#000" />}
-          />
+          hasMoreToVerify ? (
+            <Button
+              title="Verify Next Rider"
+              onPress={handleBackToPicker}
+              icon={<Ionicons name="people" size={16} color="#000" />}
+            />
+          ) : (
+            <Button
+              title="Continue to Rating"
+              onPress={handleContinueToRating}
+              icon={<Ionicons name="star" size={16} color="#000" />}
+            />
+          )
         ) : (
           <Button
             title={theirPin.length < 4 ? 'Enter their 4-digit PIN' : verifying ? 'Verifying...' : 'Verify PIN'}

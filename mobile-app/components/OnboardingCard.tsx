@@ -60,25 +60,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   imageContainer: {
-    flex: 1,
+    flex: 1.2,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 40,
   },
   image: {
-    width: 280,
-    height: 280,
+    width: '100%',
+    height: '100%',
   },
   textContainer: {
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     letterSpacing: -0.5,
   },
   description: {

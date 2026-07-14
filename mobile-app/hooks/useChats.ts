@@ -2,29 +2,32 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthProvider';
 
+export interface ChatParticipant {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  trust_score: number;
+  verified: boolean;
+  gender: string;
+  is_poster: boolean;
+}
+
 export interface Chat {
   id: string;
   ride_id: string;
   ride_from: string;
   ride_to: string;
-  requester_id: string;
   poster_id: string;
   created_at: string;
   last_message_at: string | null;
   expires_at: string | null;
-  other_user?: {
-    id: string;
-    name: string;
-    avatar_url?: string;
-    trust_score: number;
-    verified: boolean;
-    gender: string;
-  };
+  participants?: ChatParticipant[];
   last_message?: {
     id: string;
     text: string;
     timestamp: string;
     sender_id: string;
+    sender_name?: string;
     is_mine: boolean;
   };
   unread_count?: number;
@@ -42,11 +45,36 @@ export function useChats() {
     try {
       setLoading(true);
 
-      // Fetch chats where user is either requester or poster
+      // Find ride IDs where user is a participant
+      const { data: participantRides } = await supabase
+        .from('ride_participants')
+        .select('ride_id')
+        .eq('user_id', user.id)
+        .in('status', ['accepted', 'pending']);
+
+      const participantRideIds = participantRides?.map((r) => r.ride_id) || [];
+
+      // Find ride IDs where user is the poster
+      const { data: posterRides } = await supabase
+        .from('rides')
+        .select('id')
+        .eq('poster_id', user.id);
+
+      const posterRideIds = posterRides?.map((r) => r.id) || [];
+
+      // Combine all ride IDs
+      const allRideIds = [...new Set([...participantRideIds, ...posterRideIds])];
+
+      if (allRideIds.length === 0) {
+        setChats([]);
+        return;
+      }
+
+      // Fetch chats for those rides
       const { data: chatData, error: chatError } = await supabase
         .from('chats')
         .select('*')
-        .or(`requester_id.eq.${user.id},poster_id.eq.${user.id}`)
+        .in('ride_id', allRideIds)
         .order('last_message_at', { ascending: false });
 
       if (chatError) throw chatError;
@@ -56,17 +84,39 @@ export function useChats() {
         return;
       }
 
-      // For each chat, get the other user's info and last message
+      // For each chat, get participants, last message, and unread count
       const chatsWithDetails = await Promise.all(
         chatData.map(async (chat) => {
-          const otherUserId = chat.requester_id === user.id ? chat.poster_id : chat.requester_id;
+          // Get participants for this ride
+          const { data: participantRows } = await supabase
+            .from('ride_participants')
+            .select('user_id, status')
+            .eq('ride_id', chat.ride_id)
+            .in('status', ['accepted', 'pending']);
 
-          // Get other user details
-          const { data: userData } = await supabase
+          const participantUserIds = participantRows?.map((p) => p.user_id) || [];
+
+          // Always include the poster
+          const allUserIds = [...new Set([chat.poster_id, ...participantUserIds])];
+
+          // Fetch user details for all participants
+          const { data: usersData } = await supabase
             .from('users')
             .select('id, name, avatar_url, trust_score, verified, gender')
-            .eq('id', otherUserId)
-            .single();
+            .in('id', allUserIds);
+
+          const participants: ChatParticipant[] = allUserIds.map((uid) => {
+            const userData = usersData?.find((u) => u.id === uid);
+            return {
+              id: uid,
+              name: userData?.name || 'Unknown',
+              avatar_url: userData?.avatar_url,
+              trust_score: userData?.trust_score || 0,
+              verified: userData?.verified || false,
+              gender: userData?.gender || 'Other',
+              is_poster: uid === chat.poster_id,
+            };
+          });
 
           // Get last message
           const { data: lastMsg } = await supabase
@@ -77,7 +127,18 @@ export function useChats() {
             .limit(1)
             .single();
 
-          // Get unread count (messages not from current user that are unread)
+          // Get sender name for last message
+          let lastMessageSenderName: string | undefined;
+          if (lastMsg) {
+            const { data: senderData } = await supabase
+              .from('users')
+              .select('name')
+              .eq('id', lastMsg.sender_id)
+              .single();
+            lastMessageSenderName = senderData?.name;
+          }
+
+          // Get unread count
           const { count: unreadCount } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
@@ -87,10 +148,11 @@ export function useChats() {
 
           return {
             ...chat,
-            other_user: userData || null,
+            participants,
             last_message: lastMsg
               ? {
                   ...lastMsg,
+                  sender_name: lastMessageSenderName,
                   is_mine: lastMsg.sender_id === user.id,
                 }
               : null,
@@ -111,7 +173,8 @@ export function useChats() {
   useEffect(() => {
     fetchChats();
 
-    // Subscribe to new chats
+    // Subscribe to new chats — listen for inserts on chats table
+    // RLS will filter to only chats the user can see
     const channel = supabase
       .channel('chats_changes')
       .on(
@@ -120,17 +183,6 @@ export function useChats() {
           event: 'INSERT',
           schema: 'public',
           table: 'chats',
-          filter: `requester_id=eq.${user?.id}`,
-        },
-        () => fetchChats()
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chats',
-          filter: `poster_id=eq.${user?.id}`,
         },
         () => fetchChats()
       )
@@ -148,7 +200,6 @@ export function useChats() {
       .from('chats')
       .select('*')
       .eq('ride_id', rideId)
-      .or(`requester_id.eq.${user.id},poster_id.eq.${user.id}`)
       .maybeSingle();
 
     return data;
@@ -170,17 +221,15 @@ export function useChats() {
 
     if (!ride) return null;
 
-    // Create chat - but this should normally be done via join request trigger
-    // This is a fallback in case chat wasn't created
+    // Upsert group chat for this ride
     const { data: newChat, error } = await supabase
       .from('chats')
-      .insert({
+      .upsert({
         ride_id: rideId,
         ride_from: ride.from_location,
         ride_to: ride.to_location,
-        requester_id: user.id,
         poster_id: ride.poster_id,
-      })
+      }, { onConflict: 'ride_id' })
       .select()
       .single();
 

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,7 +95,7 @@ export default function HomeScreen() {
           <Text className="text-xs text-text-muted">Showing rides near you</Text>
         </View>
 
-         <View className="flex-row items-center gap-2 rounded-xl px-4  mb-4 bg-bg-card border border-border">
+         <View className="flex-row items-center gap-2 rounded-xl px-4 mb-4 bg-bg-card border border-border" style={{ paddingVertical: Platform.OS === 'ios' ? 14 : 2 }}>
            <Ionicons name="search" size={16} className="text-icon-muted" />
           <TextInput
             className="flex-1 text-sm text-text"

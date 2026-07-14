@@ -179,24 +179,18 @@ export function useJoinRequests() {
 
       if (!ride) return;
 
-      // Call the send-notification edge function
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('send-notification', {
+        body: {
           userId: ride.poster_id,
           title: 'New Join Request',
           body: `${requesterName} wants to join your ride to ${ride.to_location}`,
           category: 'ride_requests',
           data: { rideId, type: 'join_request' },
-        }),
+        },
       });
 
-      if (!response.ok) {
-        console.error('Failed to send push notification:', await response.text());
+      if (error) {
+        console.error('Failed to send push notification:', error.message);
       }
     } catch (err) {
       console.error('Error sending push notification:', err);
@@ -223,20 +217,59 @@ export function useJoinRequests() {
 
       if (!poster) return;
 
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('send-notification', {
+        body: {
           userId: request.requester_id,
           title: 'Request Accepted',
           body: `${poster.name} accepted your request to join their ride to ${ride.to_location}`,
           category: 'ride_requests',
           data: { rideId, type: 'request_accepted' },
-        }),
+        },
       });
+
+      if (error) {
+        console.error('Failed to send push notification:', error.message);
+      }
     } catch (err) {
       console.error('Error sending accept notification:', err);
+    }
+  };
+
+  const sendRequestDeclinedNotification = async (requestId: string, rideId: string) => {
+    try {
+      const [rideResult, requestResult] = await Promise.all([
+        supabase.from('rides').select('poster_id, to_location').eq('id', rideId).single(),
+        supabase.from('join_requests').select('requester_id').eq('id', requestId).single(),
+      ]);
+
+      if (!rideResult.data || !requestResult.data) return;
+
+      const ride = rideResult.data;
+      const request = requestResult.data;
+
+      const { data: poster } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', ride.poster_id)
+        .single();
+
+      if (!poster) return;
+
+      const { error } = await supabase.functions.invoke('send-notification', {
+        body: {
+          userId: request.requester_id,
+          title: 'Request Declined',
+          body: `${poster.name} declined your request to join their ride to ${ride.to_location}`,
+          category: 'ride_requests',
+          data: { rideId, type: 'request_declined' },
+        },
+      });
+
+      if (error) {
+        console.error('Failed to send push notification:', error.message);
+      }
+    } catch (err) {
+      console.error('Error sending decline notification:', err);
     }
   };
 
@@ -275,7 +308,6 @@ export function useJoinRequests() {
 
       if (error) throw error;
 
-      // If accepted, add to ride participants and create chat
       if (response === 'accepted') {
         // Create ride_participants record for requester
         await supabase.from('ride_participants').insert({
@@ -299,25 +331,21 @@ export function useJoinRequests() {
           .update({ seats_taken: (ride.seats_taken || 0) + 1 })
           .eq('id', requestData.ride_id);
 
-        // Create chat if it doesn't exist
-        const { data: existingChat } = await supabase
-          .from('chats')
-          .select('id')
-          .eq('ride_id', requestData.ride_id)
-          .maybeSingle();
-
-        if (!existingChat) {
-          await supabase.from('chats').insert({
-            ride_id: requestData.ride_id,
-            ride_from: ride.from_location,
-            ride_to: ride.to_location,
-            requester_id: requestData.requester_id,
-            poster_id: ride.poster_id,
-          });
-        }
+        // Upsert group chat for this ride (one chat per ride for all participants)
+        await supabase.from('chats').upsert({
+          ride_id: requestData.ride_id,
+          ride_from: ride.from_location,
+          ride_to: ride.to_location,
+          poster_id: ride.poster_id,
+        }, { onConflict: 'ride_id' });
 
         // Send push notification to requester
         await sendRequestAcceptedNotification(requestId, requestData.ride_id);
+      }
+
+      if (response === 'declined') {
+        // Send push notification to requester
+        await sendRequestDeclinedNotification(requestId, requestData.ride_id);
       }
 
       await fetchRequests();

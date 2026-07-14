@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import { Ride, PostRideData } from '../types';
 import { useRideStore } from '../store/rideStore';
+import { supabase } from '../lib/supabase';
 
 interface RideContextType {
   rides: Ride[];
@@ -25,6 +26,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
   const fetchRideById = useRideStore((s) => s.fetchRideById);
   const postRideStore = useRideStore((s) => s.postRide);
   const cancelRideStore = useRideStore((s) => s.cancelRide);
+  const removeRide = useRideStore((s) => s.removeRide);
 
   const universityId = useRideStore((s) => s.universityId);
 
@@ -37,6 +39,45 @@ export function RideProvider({ children }: { children: ReactNode }) {
       fetchRides();
     }
   }, [universityId, fetchRides]);
+
+  useEffect(() => {
+    if (!universityId) return;
+
+    const channel = supabase
+      .channel(`rides:${universityId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rides',
+          filter: `university_id=eq.${universityId}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          if (updated.status === 'cancelled' || updated.status === 'completed') {
+            removeRide(updated.id);
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'rides',
+          filter: `university_id=eq.${universityId}`,
+        },
+        () => {
+          fetchRides();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [universityId, removeRide, fetchRides]);
 
   const postRide = async (data: PostRideData): Promise<Ride | null> => {
     return postRideStore(data, user);

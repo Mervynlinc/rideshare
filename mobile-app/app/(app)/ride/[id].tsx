@@ -11,6 +11,7 @@ import { useChats } from '../../../hooks/useChats';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ride } from '../../../types';
+import { supabase } from '../../../lib/supabase';
 
 function useCountdown(expiresAt?: string) {
   const [remaining, setRemaining] = useState('');
@@ -59,6 +60,12 @@ export default function RideDetailScreen() {
   const [seatsAvailable, setSeatsAvailable] = useState(true);
   const [hasAcceptedChat, setHasAcceptedChat] = useState(false);
 
+  // Status change modal state
+  const [statusModal, setStatusModal] = useState<{
+    visible: boolean;
+    type: 'accepted' | 'declined';
+  }>({ visible: false, type: 'accepted' });
+
   const isOwnRide = ride?.posterId === user?.id;
   const countdown = useCountdown(ride?.expiresAt);
 
@@ -100,6 +107,47 @@ export default function RideDetailScreen() {
     const chat = await getChatByRideId(id);
     setHasAcceptedChat(!!chat);
   };
+
+  // Realtime listener for join request status changes
+  useEffect(() => {
+    if (!id || !user) return;
+
+    const channel = supabase
+      .channel(`ride_request_status_${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'join_requests',
+          filter: `requester_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          const newStatus = payload.new?.status;
+          const oldStatus = payload.old?.status;
+
+          // Only react to status changes (not initial load)
+          if (newStatus === oldStatus || !newStatus) return;
+
+          if (newStatus === 'accepted') {
+            // Show accepted modal
+            setStatusModal({ visible: true, type: 'accepted' });
+            // Refresh the request state
+            await checkExistingRequest();
+            await checkAcceptedChat();
+          } else if (newStatus === 'declined') {
+            // Show declined modal
+            setStatusModal({ visible: true, type: 'declined' });
+            await checkExistingRequest();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, user?.id]);
 
   const handleJoinRequest = async () => {
     if (!id || joining) return;
@@ -197,7 +245,7 @@ export default function RideDetailScreen() {
           </View>
         </View>
 
-        {ride.expiresAt && (
+        {ride.expiresAt && ride.seatsTaken === 0 && (
           <View className="bg-bg-card border border-border rounded-2xl p-4 mb-4 items-center">
             <Text className="text-text-muted text-xs uppercase tracking-wider font-semibold mb-1">
               Ride Expires In
@@ -381,6 +429,88 @@ export default function RideDetailScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </Pressable>
+        </Pressable>
+      </RNModal>
+
+      {/* Status Change Modal (Accepted / Declined) */}
+      <RNModal
+        visible={statusModal.visible}
+        transparent
+        animationType="none"
+        onRequestClose={() => {
+          setStatusModal({ visible: false, type: 'accepted' });
+          if (statusModal.type === 'accepted') {
+            openExistingChat();
+          }
+        }}
+      >
+        <Pressable
+          className="flex-1 justify-center items-center px-8"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onPress={() => {
+            setStatusModal({ visible: false, type: 'accepted' });
+            if (statusModal.type === 'accepted') {
+              openExistingChat();
+            }
+          }}
+        >
+          <Pressable
+            className="w-full rounded-3xl p-6 items-center"
+            style={{ backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.DEFAULT }}
+            onPress={() => {}}
+          >
+            <View
+              className="w-16 h-16 rounded-2xl items-center justify-center mb-4"
+              style={{
+                backgroundColor: statusModal.type === 'accepted'
+                  ? 'rgba(0, 200, 83, 0.12)'
+                  : 'rgba(211, 47, 47, 0.12)',
+              }}
+            >
+              <Ionicons
+                name={statusModal.type === 'accepted' ? 'checkmark-circle' : 'close-circle'}
+                size={36}
+                color={statusModal.type === 'accepted' ? colors.accent.DEFAULT : colors.red.DEFAULT}
+              />
+            </View>
+
+            <Text
+              className="text-xl font-bold text-center mb-2"
+              style={{ fontFamily: 'Space Grotesk', color: colors.text.DEFAULT }}
+            >
+              {statusModal.type === 'accepted' ? 'Request Accepted!' : 'Request Declined'}
+            </Text>
+
+            <Text
+              className="text-sm text-center leading-5 mb-6"
+              style={{ color: colors.text.sec }}
+            >
+              {statusModal.type === 'accepted'
+                ? 'Your request to join this ride has been accepted. You can now chat with the other riders!'
+                : 'Your request to join this ride has been declined. You can try requesting to join another ride.'}
+            </Text>
+
+            <TouchableOpacity
+              className="w-full py-4 rounded-2xl items-center"
+              style={{
+                backgroundColor: statusModal.type === 'accepted' ? colors.accent.DEFAULT : colors.red.DEFAULT,
+              }}
+              onPress={() => {
+                setStatusModal({ visible: false, type: 'accepted' });
+                if (statusModal.type === 'accepted') {
+                  openExistingChat();
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <Text
+                className="text-base font-semibold"
+                style={{ color: statusModal.type === 'accepted' ? '#000' : '#FFF' }}
+              >
+                {statusModal.type === 'accepted' ? 'Open Chat' : 'OK'}
+              </Text>
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </RNModal>
