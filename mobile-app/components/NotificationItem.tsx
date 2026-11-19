@@ -12,8 +12,13 @@ interface NotificationItemProps {
   selected?: boolean;
 }
 
-export function NotificationItem({ notification, onPress, onLongPress, onDelete, selected }: NotificationItemProps) {
+
+export function NotificationItem({ notification, onPress }: NotificationItemProps) {
   const { colors } = useTheme();
+
+export function NotificationItem({ notification, onPress, onLongPress, onDelete, selected }: NotificationItemProps) {
+  const { colors, isDark } = useTheme();
+
 
   const getTypeStyles = () => {
     switch (notification.type) {
@@ -49,7 +54,7 @@ export function NotificationItem({ notification, onPress, onLongPress, onDelete,
             borderColor: colors.text.dim,
           }}
         >
-          {selected && <Ionicons name="checkmark" size={14} color="#000" />}
+          {selected && <Ionicons name="checkmark" size={14} color={isDark ? '#FFFFFF' : '#000000'} />}
         </View>
       )}
       <View

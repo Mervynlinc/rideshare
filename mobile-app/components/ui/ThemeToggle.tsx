@@ -31,7 +31,7 @@ export function ThemeToggle() {
             <Ionicons
               name={option.icon}
               size={16}
-              color={isSelected ? '#000000' : isDark ? '#A0A0A0' : '#666666'}
+              color={isSelected ? (isDark ? '#FFFFFF' : '#000000') : isDark ? '#A0A0A0' : '#666666'}
               className={isSelected ? '' : isDark ? 'text-icon-muted' : 'text-icon-muted'}
             />
             <Text

@@ -11,7 +11,7 @@ import { supabase } from '../../../lib/supabase';
 
 export default function SafetyPinScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { removeRideNotifications } = useNotifications();
@@ -328,12 +328,72 @@ export default function SafetyPinScreen() {
             </Text>
           </View>
         )}
+      <Button
+        title="Verify & Return to Chat"
+        onPress={() => router.back()}
+        icon={<Ionicons name="checkmark-circle" size={16} color={colors.icon.DEFAULT} />}
+      />
+        <View style={{ width: '100%', marginBottom: 28, alignItems: 'center' }}>
+          <Text style={{ color: colors.text.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, fontWeight: '600', marginBottom: 10 }}>
+            Enter Their PIN
+          </Text>
+          <PinInput value={theirPin} length={4} onChangeText={setTheirPin} />
+        </View>
+
+        {verified ? (
+          <View
+            style={{
+              backgroundColor: `${colors.accent.DEFAULT}18`,
+              borderRadius: 12,
+              padding: 12,
+              flexDirection: 'row',
+              gap: 10,
+              width: '100%',
+              marginBottom: 24,
+              borderWidth: 1,
+              borderColor: `${colors.accent.DEFAULT}30`,
+            }}
+          >
+            <Ionicons name="checkmark-circle" size={16} color={colors.accent.DEFAULT} style={{ marginTop: 2 }} />
+            <Text style={{ color: colors.text.sec, fontSize: 12, lineHeight: 20, flex: 1 }}>
+              Verify that this is your <Text style={{ color: colors.text.DEFAULT, fontWeight: '600' }}>rideshare buddy</Text>. You've confirmed their PIN matches.
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={{
+              backgroundColor: error ? `${colors.red.DEFAULT}15` : colors.red.dim,
+              borderRadius: 12,
+              padding: 12,
+              flexDirection: 'row',
+              gap: 10,
+              width: '100%',
+              marginBottom: 24,
+              borderWidth: error ? 1 : 0,
+              borderColor: error ? `${colors.red.DEFAULT}30` : 'transparent',
+            }}
+          >
+            <Ionicons
+              name={error ? 'close-circle' : 'warning'}
+              size={16}
+              color={error ? colors.red.DEFAULT : colors.red.DEFAULT}
+              style={{ marginTop: 2 }}
+            />
+            <Text style={{ color: colors.text.sec, fontSize: 12, lineHeight: 20, flex: 1 }}>
+              {error || 'Only verify when you\'ve met the '}
+              <Text style={{ color: colors.text.DEFAULT, fontWeight: '600' }}>
+                {error ? '' : 'right person'}
+              </Text>
+              {error ? '' : '. If something feels wrong, do not share your PIN.'}
+            </Text>
+          </View>
+        )}
 
         {verified ? (
           <Button
             title="Continue to Rating"
             onPress={handleContinueToRating}
-            icon={<Ionicons name="star" size={16} color="#000" />}
+            icon={<Ionicons name="star" size={16} color={isDark ? '#FFFFFF' : '#000000'} />}
           />
         ) : (
           <Button

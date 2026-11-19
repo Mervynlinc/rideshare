@@ -1,0 +1,25 @@
+<mxfile host="app.diagrams.net" modified="2026-11-19T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="rideshare-target" name="Target architecture">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="mobile" value="Expo mobile app&#xa;JSON + SSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" vertex="1" parent="1"><mxGeometry x="70" y="130" width="190" height="90" as="geometry"/></mxCell>
+        <mxCell id="landing" value="Next.js landing page&#xa;Waitlist JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" vertex="1" parent="1"><mxGeometry x="70" y="290" width="190" height="90" as="geometry"/></mxCell>
+        <mxCell id="api" value="Express API&#xa;Auth • domain services&#xa;Authorization • SSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;" vertex="1" parent="1"><mxGeometry x="400" y="190" width="250" height="130" as="geometry"/></mxCell>
+        <mxCell id="db" value="Self-hosted PostgreSQL&#xa;Business data • sessions&#xa;outbox • inbox" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=16;" vertex="1" parent="1"><mxGeometry x="800" y="100" width="230" height="130" as="geometry"/></mxCell>
+        <mxCell id="files" value="Avatar volume&#xa;Encrypted + backed up" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=16;" vertex="1" parent="1"><mxGeometry x="800" y="280" width="230" height="100" as="geometry"/></mxCell>
+        <mxCell id="worker" value="Worker&#xa;Expiry • outbox retries&#xa;in-app notifications" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=16;" vertex="1" parent="1"><mxGeometry x="430" y="480" width="220" height="110" as="geometry"/></mxCell>
+        <mxCell id="smtp" value="Owned SMTP service&#xa;Verification + recovery" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=16;" vertex="1" parent="1"><mxGeometry x="800" y="490" width="230" height="90" as="geometry"/></mxCell>
+        <mxCell id="backup" value="Backup + restore job" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;" vertex="1" parent="1"><mxGeometry x="800" y="670" width="230" height="65" as="geometry"/></mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="mobile" target="api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="landing" target="api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="api" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="api" target="files"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="claim events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="worker" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="worker" target="smtp"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="backup" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;" edge="1" parent="1" source="backup" target="files"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

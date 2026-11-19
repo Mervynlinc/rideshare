@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+.light {
   --bg-page: #FFFFFF;
   --bg-phone: #F5F5F5;
   --bg-card: #FFFFFF;
