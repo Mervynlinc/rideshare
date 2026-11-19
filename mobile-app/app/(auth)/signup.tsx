@@ -10,7 +10,7 @@ import { validateStudentEmail, University } from '../../utils/university';
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { sendSignupOTP } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
@@ -244,7 +244,7 @@ const genderOptions = ['Male', 'Female'];
               }}
             >
               {agreedToTerms && (
-                <Ionicons name="checkmark" size={10} color="#000000" />
+                <Ionicons name="checkmark" size={10} color={isDark ? '#FFFFFF' : '#000000'} />
               )}
             </View>
             <Text className="text-xs flex-1 leading-5" style={{ color: colors.text.muted }}>

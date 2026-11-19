@@ -9,8 +9,13 @@ interface NotificationItemProps {
   onPress: () => void;
 }
 
+
 export function NotificationItem({ notification, onPress }: NotificationItemProps) {
   const { colors } = useTheme();
+
+export function NotificationItem({ notification, onPress, onLongPress, onDelete, selected }: NotificationItemProps) {
+  const { colors, isDark } = useTheme();
+
 
   const getTypeStyles = () => {
     switch (notification.type) {
@@ -33,6 +38,18 @@ export function NotificationItem({ notification, onPress }: NotificationItemProp
       className="flex-row gap-3 py-3.5 border-b"
       style={{ borderBottomColor: colors.border.DEFAULT }}
     >
+      {selected !== undefined && (
+        <View
+          className="w-5 h-5 rounded-md items-center justify-center mr-1"
+          style={{
+            backgroundColor: selected ? colors.accent.DEFAULT : 'transparent',
+            borderWidth: selected ? 0 : 1.5,
+            borderColor: colors.text.dim,
+          }}
+        >
+          {selected && <Ionicons name="checkmark" size={14} color={isDark ? '#FFFFFF' : '#000000'} />}
+        </View>
+      )}
       <View
         className="w-10 h-10 rounded-xl items-center justify-center"
         style={{ backgroundColor: typeStyles.bg }}

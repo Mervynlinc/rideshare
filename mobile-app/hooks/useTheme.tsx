@@ -136,7 +136,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && themeMode !== 'system') {
+    if (!isLoading) {
       setColorScheme(themeMode);
     }
   }, [themeMode, isLoading, setColorScheme]);
@@ -146,9 +146,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const savedMode = await AsyncStorage.getItem(THEME_STORAGE_KEY);
       if (savedMode && ['light', 'dark', 'system'].includes(savedMode)) {
         setThemeModeState(savedMode as ThemeMode);
-        if (savedMode !== 'system') {
-          setColorScheme(savedMode as 'light' | 'dark');
-        }
       }
     } catch (error) {
       console.log('Error loading theme:', error);
@@ -188,7 +185,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         colors,
       }}
     >
-      <View className={isDark ? 'dark' : ''} style={{ flex: 1 }}>
+      {/* Keep CSS variables present on the first render so NativeWind doesn't remount navigation when the theme changes. */}
+      <View className={isDark ? 'dark' : 'light'} style={{ flex: 1 }}>
         {children}
       </View>
     </ThemeContext.Provider>
