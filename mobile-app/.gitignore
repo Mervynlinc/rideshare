@@ -2,7 +2,7 @@
 
 # dependencies
 node_modules/
-
+supabase/
 # Expo
 .expo/
 dist/
@@ -44,3 +44,4 @@ DB.sql
 /ios
 /android
 .vscode
+

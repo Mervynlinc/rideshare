@@ -4,8 +4,9 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import '../global.css';
 import { ThemeProvider, useTheme } from '../hooks/useTheme';
-import { AuthProvider, useAuth, NotificationProvider, RideProvider } from '../context';
+import { AuthProvider, useAuth, NotificationProvider, RideProvider, ToastProvider } from '../context';
 import { useNotifications } from '../hooks/useNotifications';
+import { useGlobalToasts } from '../hooks/useGlobalToasts';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
 function RootNavigator() {
@@ -14,6 +15,7 @@ function RootNavigator() {
   const router = useRouter();
   const segments = useSegments();
   useNotifications();
+  useGlobalToasts();
 
   const isLoading = themeLoading || authLoading;
 
@@ -73,9 +75,11 @@ export default function RootLayout() {
       <AuthProvider>
         <ErrorBoundary>
           <NotificationProvider>
-            <RideProvider>
-              <RootNavigator />
-            </RideProvider>
+            <ToastProvider>
+              <RideProvider>
+                <RootNavigator />
+              </RideProvider>
+            </ToastProvider>
           </NotificationProvider>
         </ErrorBoundary>
       </AuthProvider>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
@@ -19,6 +19,8 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
   updateUser: (data: Partial<User>) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  isResettingPassword: boolean;
+  setResettingPassword: (v: boolean) => void;
 }
 
 interface SignupData {
@@ -40,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUserState] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [isResettingPassword, setResettingPassword] = useState(false);
+  const resettingRef = useRef(false);
 
   useEffect(() => {
     initializeAuth();
@@ -47,7 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
-        
+
+        if (resettingRef.current) return;
+
         if (session?.user) {
           const userData = await fetchUserProfile(session.user.id);
           if (userData) {
@@ -320,6 +326,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserState(newUser);
   };
 
+  const handleSetResettingPassword = (v: boolean) => {
+    resettingRef.current = v;
+    setResettingPassword(v);
+  };
+
   const updateUser = async (data: Partial<User>) => {
     if (!user) return;
 
@@ -373,6 +384,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser,
         updateUser,
         updatePassword,
+        isResettingPassword,
+        setResettingPassword: handleSetResettingPassword,
       }}
     >
       {children}

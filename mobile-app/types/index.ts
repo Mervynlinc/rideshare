@@ -23,6 +23,7 @@ export interface Person {
   verified: boolean;
   gender: string;
   color: string;
+  avatar_url: string | null;
 }
 
 export type DepartureType = 'immediate' | 'scheduled';
@@ -100,9 +101,12 @@ export interface RideHistory {
   date: string;
   from: string;
   to: string;
-  poster: string;
-  rating: number;
+  posterName: string;
+  otherPartyName: string;
   mode: RideMode;
+  wasPoster: boolean;
+  postedAt: string;
+  rating: number | null;
 }
 
 export interface SavedFilter {
@@ -114,6 +118,16 @@ export interface SavedFilter {
   minSeats?: number;
   minTrustScore?: number;
   mode?: RideMode;
+}
+
+export interface RideAlert {
+  id: string;
+  userId: string;
+  universityId: string;
+  fromLocation: string | null;
+  toLocation: string | null;
+  active: boolean;
+  createdAt: string;
 }
 
 export interface PostRideData {

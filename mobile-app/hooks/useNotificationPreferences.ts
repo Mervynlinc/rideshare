@@ -111,7 +111,7 @@ export function useNotificationPreferences() {
         .upsert({
           user_id: user.id,
           ...updated,
-        });
+        }, { onConflict: 'user_id' });
 
       if (error) {
         console.error('Error updating notification preferences:', error);
@@ -138,7 +138,8 @@ export function useNotificationPreferences() {
       if (notificationsAvailable && Notifications) {
         await Notifications.setNotificationHandler({
           handleNotification: async () => ({
-            shouldShowAlert: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
             shouldPlaySound: false,
             shouldSetBadge: false,
           }),
@@ -164,7 +165,8 @@ export function useNotificationPreferences() {
     try {
       await Notifications.setNotificationHandler({
         handleNotification: async () => ({
-          shouldShowAlert: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
           shouldPlaySound: true,
           shouldSetBadge: true,
         }),

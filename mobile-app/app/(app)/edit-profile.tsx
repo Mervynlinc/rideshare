@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -133,6 +133,10 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.bg.phone }}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView className="flex-1 px-5 pt-6" style={{ backgroundColor: colors.bg.phone }}>
         <View className="flex-row items-center justify-between mb-6">
           <BackButton onPress={() => router.back()} />
@@ -296,6 +300,7 @@ export default function EditProfileScreen() {
           disabled={isSaving}
         />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={showGenderPicker}

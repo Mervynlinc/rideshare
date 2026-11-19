@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BackButton } from '../../components/ui';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../context';
+import { supabase } from '../../lib/supabase';
 
 const RESEND_COUNTDOWN_SECONDS = 180; // 3 minutes
 
@@ -25,6 +26,7 @@ export default function OTPScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_COUNTDOWN_SECONDS);
   const [canResend, setCanResend] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -62,6 +64,14 @@ export default function OTPScreen() {
         await new Promise(resolve => setTimeout(resolve, 500));
         router.replace('/(app)/(tabs)/home');
       } else if (isPasswordReset) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          email,
+          token: code,
+          type: 'recovery',
+        });
+
+        if (verifyError) throw verifyError;
+
         router.push({
           pathname: '/(auth)/reset-password',
           params: { email }
@@ -82,6 +92,9 @@ export default function OTPScreen() {
     try {
       if (isSignup && signupData) {
         await sendSignupOTP(signupData);
+      } else if (isPasswordReset) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw error;
       } else {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -124,27 +137,30 @@ export default function OTPScreen() {
           <Text className="font-semibold" style={{ color: colors.text.DEFAULT }}>{email}</Text>
         </Text>
 
-        <View className="flex-row gap-2 mb-2">
-          {[0, 1, 2, 3, 4, 5].map((index) => (
-            <View
-              key={index}
-              className="w-12 h-16 rounded-xl items-center justify-center border-2"
-              style={{
-                borderColor: index < code.length ? colors.accent.DEFAULT : colors.border.DEFAULT,
-                backgroundColor: index < code.length ? colors.accent.glow : colors.bg.input,
-              }}
-            >
-              <Text
-                className="font-display text-2xl font-bold"
-                style={{ color: index < code.length ? colors.accent.DEFAULT : colors.text.dim }}
+        <Pressable onPress={() => inputRef.current?.focus()}>
+          <View className="flex-row gap-2 mb-2">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <View
+                key={index}
+                className="w-12 h-16 rounded-xl items-center justify-center border-2"
+                style={{
+                  borderColor: index < code.length ? colors.accent.DEFAULT : colors.border.DEFAULT,
+                  backgroundColor: index < code.length ? colors.accent.glow : colors.bg.input,
+                }}
               >
-                {index < code.length ? code[index] : ''}
-              </Text>
-            </View>
-          ))}
-        </View>
+                <Text
+                  className="font-display text-2xl font-bold"
+                  style={{ color: index < code.length ? colors.accent.DEFAULT : colors.text.dim }}
+                >
+                  {index < code.length ? code[index] : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </Pressable>
 
         <TextInput
+          ref={inputRef}
           className="absolute opacity-0"
           value={code}
           onChangeText={(text) => {

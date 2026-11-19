@@ -11,6 +11,7 @@ interface RideContextType {
   fetchRideById: (rideId: string) => Promise<Ride | null>;
   postRide: (data: PostRideData) => Promise<Ride | null>;
   cancelRide: (rideId: string) => Promise<void>;
+  completeRide: (rideId: string) => Promise<void>;
 }
 
 const RideContext = createContext<RideContextType | null>(null);
@@ -25,6 +26,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
   const fetchRideById = useRideStore((s) => s.fetchRideById);
   const postRideStore = useRideStore((s) => s.postRide);
   const cancelRideStore = useRideStore((s) => s.cancelRide);
+  const completeRideStore = useRideStore((s) => s.completeRide);
 
   const universityId = useRideStore((s) => s.universityId);
 
@@ -46,8 +48,12 @@ export function RideProvider({ children }: { children: ReactNode }) {
     return cancelRideStore(rideId);
   };
 
+  const completeRide = async (rideId: string) => {
+    return completeRideStore(rideId);
+  };
+
   return (
-    <RideContext.Provider value={{ rides, loading, removingIds, fetchRides, fetchRideById, postRide, cancelRide }}>
+    <RideContext.Provider value={{ rides, loading, removingIds, fetchRides, fetchRideById, postRide, cancelRide, completeRide }}>
       {children}
     </RideContext.Provider>
   );

@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, TextInput } from 'react-native';
+import { useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -6,13 +7,21 @@ interface PinInputProps {
   value: string;
   length: number;
   active?: boolean;
+  onChangeText?: (text: string) => void;
 }
 
-export function PinInput({ value, length, active }: PinInputProps) {
+export function PinInput({ value, length, active, onChangeText }: PinInputProps) {
   const { colors } = useTheme();
+  const inputRef = useRef<TextInput>(null);
+
+  const handlePress = () => {
+    if (onChangeText) {
+      inputRef.current?.focus();
+    }
+  };
 
   return (
-    <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
+    <Pressable onPress={handlePress} style={{ flexDirection: 'row', gap: 10, justifyContent: 'center' }}>
       {Array.from({ length }).map((_, i) => (
         <View
           key={i}
@@ -39,7 +48,19 @@ export function PinInput({ value, length, active }: PinInputProps) {
           </Text>
         </View>
       ))}
-    </View>
+      {onChangeText && (
+        <TextInput
+          ref={inputRef}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+          keyboardType="number-pad"
+          maxLength={length}
+          value={value}
+          onChangeText={onChangeText}
+          autoComplete="off"
+          textContentType="none"
+        />
+      )}
+    </Pressable>
   );
 }
 

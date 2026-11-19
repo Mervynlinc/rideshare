@@ -5,11 +5,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BackButton } from '../../components/ui';
 import { useTheme } from '../../hooks/useTheme';
+import { useAuth } from '../../context';
+import { supabase } from '../../lib/supabase';
 import { validateStudentEmail, University } from '../../utils/university';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { setResettingPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [detectedUniversity, setDetectedUniversity] = useState<University | null>(null);
@@ -46,17 +49,18 @@ export default function ForgotPasswordScreen() {
     setError('');
 
     try {
-      // In a real app, this would call your backend to send an OTP code
-      // For now, we'll simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
 
-      // Navigate to OTP verification page with the email
+      if (error) throw error;
+
+      setResettingPassword(true);
+
       router.push({
         pathname: '/(auth)/otp',
         params: { email, type: 'password-reset' }
       });
-    } catch {
-      setError('Failed to send verification code. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send verification code. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

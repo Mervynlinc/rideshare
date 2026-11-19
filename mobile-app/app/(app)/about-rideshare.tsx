@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,14 +117,18 @@ export default function AboutRideShareScreen() {
               <Ionicons name="mail" size={16} color={colors.icon.muted} />
               <Text className="text-xs text-text-sec">rideshare2026.io@gmail.com</Text>
             </View>
-            <View className="flex-row items-center gap-2">
+            <TouchableOpacity className="flex-row items-center gap-2" onPress={() => Linking.openURL('https://x.com/ride___share')}>
               <Ionicons name="logo-twitter" size={16} color={colors.icon.muted} />
-              <Text className="text-xs text-text-sec">@rideshare</Text>
-            </View>
-            <View className="flex-row items-center gap-2">
+              <Text className="text-xs text-text-sec">@ride___share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="flex-row items-center gap-2" onPress={() => Linking.openURL('https://www.instagram.com/ride__share/')}>
               <Ionicons name="logo-instagram" size={16} color={colors.icon.muted} />
-              <Text className="text-xs text-text-sec">@rideshare_app</Text>
-            </View>
+              <Text className="text-xs text-text-sec">@ride__share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="flex-row items-center gap-2" onPress={() => Linking.openURL('https://www.tiktok.com/@ride__share')}>
+              <Ionicons name="logo-tiktok" size={16} color={colors.icon.muted} />
+              <Text className="text-xs text-text-sec">@ride__share</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>

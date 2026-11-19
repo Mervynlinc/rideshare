@@ -38,6 +38,8 @@ export default function HomeScreen() {
 
   const filteredRides = useMemo(() => {
     return rides.filter((ride) => {
+      if (ride.posterId === user?.id) return false;
+
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesDestination =
@@ -152,7 +154,7 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(app)/(tabs)/post')}
               >
                 <Text className="text-sm text-accent font-semibold">
-                  Post the first ride
+                  Post a ride
                 </Text>
               </TouchableOpacity>
             )}
